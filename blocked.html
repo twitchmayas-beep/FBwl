@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Accès Refusé - Flashback TV</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Rajdhani:wght@700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #0c0712;
+            --card-bg: #1a1021;
+            --accent-red: #ff4d6d;
+            --text-main: #ffffff;
+            --text-muted: #a39bb8;
+            --card-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+            --card-glow: 0 0 30px rgba(255, 77, 109, 0.15);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            background-image: 
+                radial-gradient(circle at 50% 50%, rgba(26, 16, 33, 0.8) 0%, transparent 70%);
+        }
+
+        .container {
+            position: relative;
+            z-index: 1;
+            text-align: center;
+            animation: fadeIn 0.8s ease-out;
+        }
+
+        .card {
+            background-color: var(--card-bg);
+            padding: 3rem 2.5rem;
+            border-radius: 24px;
+            max-width: 500px;
+            width: 90%;
+            margin: 0 auto;
+            border: 1px solid rgba(255, 77, 109, 0.2);
+            box-shadow: var(--card-shadow), var(--card-glow);
+            backdrop-filter: blur(10px);
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* Subtle gradient overlay for the card */
+        .card::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0; height: 4px;
+            background: linear-gradient(90deg, transparent, var(--accent-red), transparent);
+            opacity: 0.5;
+        }
+
+        .icon-container {
+            margin-bottom: 2rem;
+            display: flex;
+            justify-content: center;
+        }
+
+        .stop-icon {
+            width: 64px;
+            height: 64px;
+            background: linear-gradient(135deg, #ff4d6d 0%, #ff1e56 100%);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 0 20px rgba(255, 77, 109, 0.4);
+            position: relative;
+        }
+
+        .stop-icon::after {
+            content: '';
+            width: 28px;
+            height: 6px;
+            background-color: #fff;
+            border-radius: 3px;
+        }
+
+        h1 {
+            font-family: 'Rajdhani', sans-serif;
+            font-size: 2.5rem;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            color: var(--accent-red);
+            margin-bottom: 1.5rem;
+            font-weight: 700;
+            text-shadow: 0 0 15px rgba(255, 77, 109, 0.3);
+        }
+
+        p {
+            font-size: 1.1rem;
+            line-height: 1.6;
+            color: var(--text-muted);
+            font-weight: 400;
+        }
+
+        p strong {
+            color: var(--text-main);
+            font-weight: 600;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* Background animated glow */
+        .glow {
+            position: absolute;
+            width: 500px;
+            height: 500px;
+            background: radial-gradient(circle, rgba(255, 77, 109, 0.05) 0%, transparent 70%);
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 0;
+            pointer-events: none;
+            animation: pulse 4s infinite alternate;
+        }
+
+        @keyframes pulse {
+            from { opacity: 0.3; transform: translate(-50%, -50%) scale(1); }
+            to { opacity: 0.7; transform: translate(-50%, -50%) scale(1.2); }
+        }
+    </style>
+</head>
+<body>
+    <div class="glow"></div>
+    <div class="container">
+        <div class="card">
+            <div class="icon-container">
+                <div class="stop-icon"></div>
+            </div>
+            <h1>Accès Refusé</h1>
+            <p>
+                En tant que citoyen actif en ville, l'accès à Flashback TV 
+                vous est refusé pour <strong>protéger le RolePlay</strong> (Anti-Streamhack).
+            </p>
+        </div>
+    </div>
+</body>
+</html>
