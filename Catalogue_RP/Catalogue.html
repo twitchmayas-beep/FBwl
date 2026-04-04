@@ -1,0 +1,2681 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FLASHBACK WL — Catalogue</title>
+
+  <!-- 
+    Salut ! Si tu lis ça, bienvenue dans les coulisses du catalogue.
+    C'est du propre, fait avec amour pour la communauté Flashback.
+    N'hésite pas à faire un retour si tu vois un bug traîner ! 
+  -->
+
+  <link
+    href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Inter:wght@300;400;500;600&family=Caveat:wght@400;700&display=swap"
+    rel="stylesheet">
+  <link rel="stylesheet" href="Catalogue.css">
+</head>
+
+<body>
+
+  <!-- ══ HEADER ══════════════════════════════════════════════ -->
+  <header>
+    <div class="logo">
+      <span class="logo-flash">⚡</span>
+      <span id="serverName">FLASHBACK WL</span>
+    </div>
+
+    <div class="search-wrap">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="11" cy="11" r="8" />
+        <path d="m21 21-4.35-4.35" />
+      </svg>
+      <input type="text" id="searchInput" placeholder="On cherche qui aujourd'hui ? (nom, rôle...)"
+        oninput="applyFilters()">
+    </div>
+
+    <div class="header-right">
+      <div class="stat-chip">
+        <div class="live-dot-hdr"></div>
+        <span><strong id="countLiveHdr">0</strong> en live</span>
+      </div>
+      <div class="stat-chip">
+        <span>👤</span>
+        <span><strong id="countTotal">0</strong> personnages</span>
+      </div>
+      <button id="twitchBtn" class="btn btn-ghost" onclick="refreshLive()" title="Cliquer pour rafraîchir">
+        ⟳ Twitch non configuré
+      </button>
+      <button id="adminBtn" class="btn btn-ghost" onclick="requireAdmin()" title="Ouvrir l'administration">
+        ⚙️ Admin
+      </button>
+    </div>
+  </header>
+
+  <!-- ══ APP ═════════════════════════════════════════════════ -->
+  <div class="app">
+
+    <!-- SIDEBAR -->
+    <aside class="sidebar" id="sidebar">
+      <div class="sb-label">FLASHBACK WL</div>
+
+      <!-- Général / Accueil -->
+      <button class="sb-btn active" id="btnGeneral" onclick="setFilter('general', 'main', this)">
+        <span class="sb-icon" style="background:rgba(255,215,0,0.1);color:#ffd700">🏠</span>
+        Général
+      </button>
+
+      <!-- Factions + groupes — générés dynamiquement -->
+      <div id="factionTree"></div>
+
+      <!-- Nouvelles sections Wiki -->
+      <button class="sb-btn" onclick="setFilter('wiki', 'entreprises', this)">
+        <span class="sb-icon" style="background:rgba(176,126,255,0.1);color:#b07eff">🏢</span>
+        Entreprises
+      </button>
+      <button class="sb-btn" onclick="setFilter('wiki', 'services', this)">
+        <span class="sb-icon" style="background:rgba(176,126,255,0.1);color:var(--accent)">🏛️</span>
+        Services publics
+      </button>
+      <button class="sb-btn" onclick="setFilter('wiki', 'associations', this)">
+        <span class="sb-icon" style="background:rgba(66,210,164,0.1);color:#42d2a4">🤝</span>
+        Associations
+      </button>
+      <button class="sb-btn" onclick="setFilter('wiki', 'politique', this)">
+        <span class="sb-icon" style="background:rgba(255,126,186,0.1);color:#ff7eba">🎙️</span>
+        Vie politique
+      </button>
+
+
+
+      <button class="sb-btn" onclick="setFilter('wiki', 'tv', this)">
+        <span class="sb-icon" style="background:rgba(145,71,255,0.1);color:#9147ff">📺</span>
+        Flashback TV
+      </button>
+
+      <div class="sb-divider"></div>
+
+      <!-- Statut live -->
+      <div class="sb-label">Statut</div>
+      <button class="sb-btn" onclick="setFilter('live', 'live', this)">
+        <span class="sb-icon" style="background:rgba(176,126,255,0.1);color:var(--primary-purple)">●</span>
+        En live
+      </button>
+    </aside>
+
+    <!-- MAIN -->
+    <main class="main">
+
+      <!-- Petit rappel pour la config Twitch, ça évite de se demander pourquoi rien ne s'affiche -->
+      <div class="alert-banner" id="configAlert">
+        <span style="font-size:18px;flex-shrink:0">💡</span>
+        <div>
+          <strong style="color:var(--text-bright)">Oh, une petite seconde !</strong><br>
+          Il semblerait qu'on n'ait pas encore ton <code>client_id</code> et ton <code>access_token</code> dans le
+          <code>config.json</code>.
+          C'est nécessaire si tu veux que la détection automatique des lives Twitch fonctionne.
+        </div>
+      </div>
+
+      <div class="view-header">
+        <div class="view-title" id="viewTitle">
+          Actuellement, on a <span id="viewCount">...</span> profil(s) en ville
+        </div>
+        <div class="sort-wrap">
+          <button class="sort-btn active" onclick="setSort('nom',this)">A–Z</button>
+          <button class="sort-btn" onclick="setSort('live',this)">Live</button>
+        </div>
+      </div>
+
+      <div class="team-tabs hidden" id="teamTabs"></div>
+
+      <div class="admin-panel hidden" id="adminPanel">
+        <div class="admin-header">
+          <div>
+            <h2>Dashboard Admin <span id="adminActiveTitle"></span></h2>
+            <p>Ici on gère les coulisses du serveur. Attention aux modifs !</p>
+          </div>
+          <div class="admin-header-actions">
+            <div id="syncStatus" class="sync-status saved">
+              <span id="syncStatusIcon">✅</span> <span id="syncStatusText">Tout est à jour sur le PC</span>
+            </div>
+            <button id="saveToDiskBtn" class="btn btn-save-disk" onclick="syncAllToDisk()">💾 Sauvegarder sur le
+              disque</button>
+            <button class="btn btn-ghost" onclick="closeAdminPanel()">Fermer</button>
+          </div>
+        </div>
+
+        <div class="admin-layout">
+          <aside class="admin-sidebar">
+            <div class="admin-sidebar-label">Navigation</div>
+            <button class="admin-aside-btn active" id="adminBtn_chars" onclick="setAdminView('chars', this)">
+              <span class="sb-icon">👤</span> Personnages
+            </button>
+            <button class="admin-aside-btn" id="adminBtn_groups" onclick="setAdminView('groups', this)">
+              <span class="sb-icon">🏛️</span> Gestion des groupes
+            </button>
+            <button class="admin-aside-btn" id="adminBtn_sync" onclick="setAdminView('sync', this)">
+              <span class="sb-icon">📁</span> Synchronisation
+            </button>
+
+            <div class="admin-sidebar-label">Wiki / Pages</div>
+            <button class="admin-aside-btn" id="adminBtn_entreprises" onclick="setAdminView('entreprises', this)">
+              <span class="sb-icon">🏢</span> Entreprises
+            </button>
+            <button class="admin-aside-btn" id="adminBtn_services" onclick="setAdminView('services', this)">
+              <span class="sb-icon">🏛️</span> Services publics
+            </button>
+            <button class="admin-aside-btn" id="adminBtn_associations" onclick="setAdminView('associations', this)">
+              <span class="sb-icon">🤝</span> Associations
+            </button>
+            <button class="admin-aside-btn" id="adminBtn_politique" onclick="setAdminView('politique', this)">
+              <span class="sb-icon">🎙️</span> Vie politique
+            </button>
+
+
+
+            <div class="admin-sidebar-label">Configuration</div>
+            <button class="admin-aside-btn" style="opacity:0.5; cursor:not-allowed">
+              <span class="sb-icon">⚙️</span> Général
+            </button>
+          </aside>
+
+          <div class="admin-main">
+            <!-- SECTION : PERSONNAGES -->
+            <div id="adminView_chars" class="admin-view-section">
+              <div class="admin-search">
+                <input type="search" id="adminSearch" placeholder="Rechercher par nom, faction, groupe..."
+                  oninput="setAdminSearch(this.value)">
+              </div>
+
+              <div class="admin-create-actions">
+                <button class="btn btn-primary" onclick="startCreateCharacter()">＋ Créer un personnage</button>
+              </div>
+
+              <div id="adminEditor" class="admin-editor hidden">
+                <div class="admin-editor-grid">
+                  <div class="admin-editor-form">
+                    <div class="field-row">
+                      <label for="editorNom">Nom</label>
+                      <input id="editorNom" type="text" placeholder="Prénom Nom | Pseudo"
+                        onchange="updateAdminDraft('nom', this.value)">
+                    </div>
+                    <div class="field-row">
+                      <label for="editorFaction">Faction</label>
+                      <select id="editorFaction" onchange="updateAdminDraft('faction', this.value)">
+                        <option value="legal">Légal</option>
+                        <option value="illegal">Illégal</option>
+                      </select>
+                    </div>
+                    <div class="field-row">
+                      <label for="editorGroupe">Groupe</label>
+                      <select id="editorGroupe" onchange="updateAdminDraft('groupe', this.value)"></select>
+                    </div>
+                    <div class="field-row" id="editorEquipeRow">
+                      <label for="editorEquipe">Équipe (Optionnel)</label>
+                      <select id="editorEquipe" onchange="updateAdminDraft('equipe', this.value)"></select>
+                    </div>
+                    <div class="field-row" id="editorRoleWrap">
+                      <label for="editorRole">Rôle</label>
+                      <input id="editorRole" type="text" placeholder="Ex: Leader, Medecin, etc."
+                        onchange="updateAdminDraft('role', this.value)">
+                    </div>
+                    <div class="field-row">
+                      <label for="editorTwitch">Twitch</label>
+                      <input id="editorTwitch" type="text" placeholder="Nom du compte Twitch"
+                        onchange="updateAdminDraft('twitch', this.value)">
+                    </div>
+                    <div class="field-row">
+                      <label for="editorPhoto">URL de la photo</label>
+                      <input id="editorPhoto" type="text" placeholder="https://..."
+                        onchange="updateAdminDraft('photo', this.value)">
+                    </div>
+                    <div class="admin-editor-actions">
+                      <button class="btn btn-primary" onclick="saveAdminDraft()">Enregistrer</button>
+                      <button id="editorDeleteBtn" class="btn btn-danger hidden"
+                        onclick="deleteAdminChar()">Supprimer</button>
+                      <button class="btn btn-ghost" onclick="cancelAdminDraft()">Annuler</button>
+                    </div>
+                  </div>
+                  <div class="admin-editor-preview">
+                    <h3>Aperçu</h3>
+                    <div id="editorPreview" class="preview-card"></div>
+                  </div>
+                </div>
+              </div>
+
+              <div id="adminList"></div>
+            </div>
+
+            <!-- SECTION : GESTION DES GROUPES -->
+            <div id="adminView_groups" class="admin-view-section hidden">
+              <div class="welcome-intro">
+                <h2>🏛️ Gestion des groupes</h2>
+                <p>Gérez les factions, les groupes et leurs équipes respectives.</p>
+              </div>
+              <div class="admin-groups" id="adminGroups"></div>
+            </div>
+
+            <!-- SECTIONS WIKI DANS L'ADMIN (GESTION FUTURE) -->
+            <!-- SECTION : ENTREPRISES -->
+            <div id="adminView_entreprises" class="admin-view-section hidden">
+              <div class="admin-create-actions">
+                <button class="btn btn-primary" onclick="startCreateEntreprise()">＋ Créer une entreprise</button>
+              </div>
+
+              <div id="entEditor" class="admin-editor hidden">
+                <div class="admin-editor-grid">
+                  <div class="admin-editor-form">
+                    <div class="field-row">
+                      <label for="entNom">Nom de l'entreprise</label>
+                      <input id="entNom" type="text" placeholder="Ex: Benny's Motorworks"
+                        oninput="updateEntDraft('nom', this.value)">
+                    </div>
+                    <div class="field-row">
+                      <label for="entCategory">Type / Secteur</label>
+                      <input id="entCategory" type="text" placeholder="Ex: Garage, Bar, Restauration..."
+                        oninput="updateEntDraft('category', this.value)">
+                    </div>
+                    <div class="field-row">
+                      <label for="entDescription">Description</label>
+                      <textarea id="entDescription" rows="3" placeholder="Activités de l'entreprise..."
+                        oninput="updateEntDraft('description', this.value)"></textarea>
+                    </div>
+                    <div class="field-row">
+                      <label for="entPatron">Patron</label>
+                      <input id="entPatron" type="text" placeholder="Nom du propriétaire"
+                        oninput="updateEntDraft('patron', this.value)">
+                    </div>
+                    <div class="field-row">
+                      <label for="entLocalisation">Localisation</label>
+                      <input id="entLocalisation" type="text" placeholder="Ex: Little Seoul"
+                        oninput="updateEntDraft('localisation', this.value)">
+                    </div>
+                    <div class="field-row">
+                      <label for="entLogo">URL du logo</label>
+                      <input id="entLogo" type="text" placeholder="https://..."
+                        oninput="updateEntDraft('logo', this.value)">
+                    </div>
+                    <div class="admin-editor-actions">
+                      <button class="btn btn-primary" onclick="saveEntDraft()">Enregistrer</button>
+                      <button id="entDeleteBtn" class="btn btn-danger hidden" onclick="deleteEnt()">Supprimer</button>
+                      <button class="btn btn-ghost" onclick="cancelEntDraft()">Annuler</button>
+                    </div>
+                  </div>
+                  <div class="admin-editor-preview">
+                    <h3>Aperçu</h3>
+                    <div id="entPreview" class="preview-card"></div>
+                  </div>
+                </div>
+              </div>
+
+              <div id="entList"></div>
+            </div>
+
+            <div id="adminView_services" class="admin-view-section hidden">
+              <div class="welcome-intro">
+                <h2>🏛️ Gestion des Services Publics</h2>
+                <p>Espace de configuration en cours de préparation...</p>
+              </div>
+            </div>
+
+            <div id="adminView_associations" class="admin-view-section hidden">
+              <div class="admin-create-actions">
+                <button class="btn btn-primary" onclick="startCreateAssociation()">＋ Créer une association</button>
+              </div>
+
+              <div id="assocEditor" class="admin-editor hidden">
+                <div class="admin-editor-grid">
+                  <div class="admin-editor-form">
+                    <div class="field-row">
+                      <label for="assocNom">Nom de l'association</label>
+                      <input id="assocNom" type="text" placeholder="Ex: Croix Rouge"
+                        onchange="updateAssocDraft('nom', this.value)">
+                    </div>
+                    <div class="field-row">
+                      <label for="assocCategory">Type / Secteur</label>
+                      <input id="assocCategory" type="text" placeholder="Ex: Humanitaire"
+                        onchange="updateAssocDraft('category', this.value)">
+                    </div>
+                    <div class="field-row">
+                      <label for="assocDescription">Description</label>
+                      <textarea id="assocDescription" placeholder="Présentation de l'association..."
+                        onchange="updateAssocDraft('description', this.value)"></textarea>
+                    </div>
+                    <div class="field-row">
+                      <label for="assocPatron">Responsable</label>
+                      <input id="assocPatron" type="text" placeholder="Nom du responsable"
+                        onchange="updateAssocDraft('patron', this.value)">
+                    </div>
+                    <div class="field-row">
+                      <label for="assocLocalisation">Siège Social</label>
+                      <input id="assocLocalisation" type="text" placeholder="Adresse / Quartier"
+                        onchange="updateAssocDraft('localisation', this.value)">
+                    </div>
+                    <div class="field-row">
+                      <label for="assocLogo">URL du Logo</label>
+                      <input id="assocLogo" type="text" placeholder="https://..."
+                        onchange="updateAssocDraft('logo', this.value)">
+                    </div>
+                    <div class="admin-editor-actions">
+                      <button class="btn btn-primary" onclick="saveAssocDraft()">Enregistrer</button>
+                      <button id="assocDeleteBtn" class="btn btn-danger hidden"
+                        onclick="deleteAssoc()">Supprimer</button>
+                      <button class="btn btn-ghost" onclick="cancelAssocDraft()">Annuler</button>
+                    </div>
+                  </div>
+                  <div class="admin-editor-preview">
+                    <h3>Aperçu</h3>
+                    <div id="assocPreview" class="preview-card"></div>
+                  </div>
+                </div>
+              </div>
+
+              <div id="assocList"></div>
+            </div>
+
+            <div id="adminView_politique" class="admin-view-section hidden">
+              <div class="welcome-intro">
+                <h2>🎙️ Gestion de la Vie Politique</h2>
+                <p>Espace de configuration en cours de préparation...</p>
+              </div>
+            </div>
+
+            <!-- SECTION : SYNC / DOSSIER LOCAL -->
+            <div id="adminView_sync" class="admin-view-section hidden">
+              <div class="welcome-intro">
+                <h2>📁 Gestion des Fichiers</h2>
+                <p>C'est ici que vous pouvez sauvegarder définitivement vos modifications sur votre ordinateur.</p>
+              </div>
+
+              <div class="admin-actions" id="adminSyncContainer">
+                <button class="btn btn-primary" onclick="downloadCharactersJson()">⬇️ Télécharger
+                  Characters.json</button>
+                <button class="btn btn-primary" onclick="downloadGroupesJson()"
+                  style="background-color: var(--color-purple); color: white;">⬇️ Télécharger Groupes.json</button>
+                <button class="btn btn-ghost" onclick="restoreOriginalData()" style="color: var(--color-illegal);">❌
+                  Réinitialiser le cache local</button>
+              </div>
+
+              <div class="notice-card hrp-warning" id="syncNote"
+                style="border-left: 5px solid var(--accent); background: rgba(109,140,255,0.05); color: var(--text-soft);">
+                <h3 style="color:var(--accent)">ℹ️ INFORMATION SYNCHRO</h3>
+                <p style="color:var(--text-soft)">Pour que vos changements soient visibles en permanence par tous vos
+                  utilisateurs, n'oubliez pas de remplacer les fichiers existants dans votre dossier par ceux
+                  téléchargés ci-dessus.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- VUE GÉNÉRALE / ACCUEIL -->
+      <div id="generalView" class="general-view">
+        <div class="welcome-banner"
+          style="background-image: url('assets/Image de fond Flashback WL.png'); background-size: cover; background-position: center;">
+          <div class="banner-overlay">
+            <h1>L'HISTOIRE S'ÉCRIT ICI</h1>
+            <p>Retrouve tous les visages qui font battre le cœur de Flashback</p>
+          </div>
+        </div>
+
+        <div class="welcome-content">
+          <section class="welcome-intro">
+            <a href="https://www.twitch.tv/aenot" target="_blank"
+              style="position: absolute; top: 1.5rem; right: 1.5rem; width: 60px; height: 60px; border-radius: 50%; overflow: hidden; border: 2px solid var(--accent); box-shadow: 0 0 15px rgba(176, 126, 255, 0.4); transition: all 0.3s ease; display: block; z-index: 10;"
+              onmouseover="this.style.transform='scale(1.1) rotate(5deg)'; this.style.boxShadow='0 0 25px rgba(176, 126, 255, 0.7)'; this.style.borderColor='#fff';"
+              onmouseout="this.style.transform='scale(1) rotate(0deg)'; this.style.boxShadow='0 0 15px rgba(176, 126, 255, 0.4)'; this.style.borderColor='var(--accent)';"
+              title="Suivre Aenot sur Twitch">
+              <img src="assets/TwitchLogoAenot.jpg" alt="Twitch Aenot"
+                style="width: 100%; height: 100%; object-fit: cover;">
+            </a>
+            <h2>À propos de Flashback WL</h2>
+            <div style="height: 1px; background: rgba(255, 255, 255, 0.08); margin: 0.8rem 0 1.5rem 0;"></div>
+            <p style="line-height: 1.8; font-size: 1.05rem;">
+              <strong style="font-size: 1.2rem; color: var(--primary-purple);">WL V6 Flashback ⚡</strong><br><br>
+              📅 : Samedi 4 Avril <br>
+              ⏳ : De 17h à 19h<br>
+              🔧 : 20 ans minimum - un bon micro - 500h minimum d'expérience<br><br>
+              <strong>WL : Civil - EMS - DOJ</strong><br><br>
+              <em style="opacity: 0.8; font-style: italic;">L'équipe Staff Flashback</em>
+            </p>
+            <div style="margin-top: 1.5rem; text-align: center;">
+              <img src="assets/WL%20fb.png" alt="Affiche WL V6 Flashback"
+                style="max-width: 100%; border-radius: 16px; border: 1px solid var(--border); box-shadow: 0 8px 24px rgba(176, 126, 255, 0.15);">
+            </div>
+          </section>
+
+          <aside class="welcome-notices">
+            <!-- Alerte HRP originale -->
+            <div
+              style="border: 1px solid rgba(255, 107, 137, 0.2); background: rgba(255, 107, 137, 0.05); padding: 1.5rem; border-radius: 12px;">
+              <h3
+                style="color: var(--alert-danger); font-size: 0.95rem; text-transform: uppercase; margin-bottom: 0.8rem; display: flex; align-items: center; gap: 8px;">
+                ⚠️ ATTENTION HRP</h3>
+              <p style="color: #ff95a8; line-height: 1.6; font-size: 0.95rem;">
+                Toutes les informations retrouvées ici sont des informations HRP ! Vous ne DEVEZ PAS les utiliser dans
+                le RP de votre personnage.
+              </p>
+            </div>
+
+            <a href="https://discord.gg/flashback" target="_blank"
+              style="display: block; width: 100%; margin-top: 2rem; text-decoration: none; border-radius: 16px; overflow: hidden; border: 1px solid var(--border); transition: transform 0.2s ease, box-shadow 0.2s ease; box-shadow: 0 4px 15px rgba(0,0,0,0.2);"
+              onmouseover="this.style.transform='scale(1.02)'; this.style.boxShadow='0 8px 25px rgba(176, 126, 255, 0.5)'"
+              onmouseout="this.style.transform='scale(1)'; this.style.boxShadow='0 4px 15px rgba(0,0,0,0.2)'">
+              <img src="assets/DiscordLOGO.jpg" alt="Discord Flashback"
+                style="width: 100%; height: auto; display: block;">
+            </a>
+
+            <a href="https://x.com/i/communities/1813724001375813923" target="_blank"
+              style="display: block; width: 100%; margin-top: 1rem; text-decoration: none; border-radius: 16px; overflow: hidden; border: 1px solid var(--border); transition: transform 0.2s ease, box-shadow 0.2s ease; box-shadow: 0 4px 15px rgba(0,0,0,0.2);"
+              onmouseover="this.style.transform='scale(1.02)'; this.style.boxShadow='0 8px 25px rgba(176, 126, 255, 0.5)'"
+              onmouseout="this.style.transform='scale(1)'; this.style.boxShadow='0 4px 15px rgba(0,0,0,0.2)'">
+              <img src="assets/LogoTwitter.avif" alt="Twitter Flashback"
+                style="width: 100%; height: auto; display: block;">
+            </a>
+          </aside>
+        </div>
+      </div>
+
+      <!-- VUES WIKI -->
+      <div id="entreprisesView" class="general-view hidden">
+        <div class="welcome-banner" style="background:var(--card-bg);">
+          <div class="banner-overlay">
+            <h1>ENTREPRISES</h1>
+            <p>Le cœur économique de la ville</p>
+          </div>
+        </div>
+        <div id="entreprisesContent"></div>
+      </div>
+
+      <div id="servicesView" class="general-view hidden">
+        <div class="welcome-banner" style="background:var(--card-bg);">
+          <div class="banner-overlay">
+            <h1>SERVICES PUBLICS</h1>
+            <p>Au service des citoyens</p>
+          </div>
+        </div>
+        <div class="welcome-content">
+          <p style="padding:2rem; opacity:0.5; text-align:center;">Contenu en cours de rédaction...</p>
+        </div>
+      </div>
+
+      <div id="associationsView" class="general-view hidden">
+        <div class="welcome-banner" style="background:var(--card-bg);">
+          <div class="banner-overlay">
+            <h1>ASSOCIATIONS</h1>
+            <p>La force du collectif</p>
+          </div>
+        </div>
+        <div id="associationsContent">
+          <p style="padding:2rem; opacity:0.5; text-align:center;">Contenu en cours de rédaction...</p>
+        </div>
+      </div>
+
+      <div id="politiqueView" class="general-view hidden">
+        <div class="welcome-banner" style="background:var(--card-bg);">
+          <div class="banner-overlay">
+            <h1>VIE POLITIQUE</h1>
+            <p>Le destin de la ville</p>
+          </div>
+        </div>
+        <div class="welcome-content">
+          <p style="padding:2rem; opacity:0.5; text-align:center;">Contenu en cours de rédaction...</p>
+        </div>
+      </div>
+
+      <div id="tvView" class="general-view hidden">
+        <div class="welcome-banner"
+          style="background-image: linear-gradient(rgba(13,6,31,0.5), rgba(13,6,31,0.9)), url('assets/Image de fond Flashback WL.png');">
+          <div class="banner-overlay">
+            <div style="display:flex; justify-content:space-between; align-items:flex-end; width:100%;">
+              <div>
+                <h1>FLASHBACK TV</h1>
+                <p>Suivre les aventures des citoyens en direct</p>
+              </div>
+              <a href="https://stream-tracker.live/" target="_blank" class="btn btn-primary"
+                style="margin-bottom:0.5rem; background:#9147ff;">
+                Ouvrir la TV Officielle 📺
+              </a>
+            </div>
+          </div>
+        </div>
+        <div id="tvContent" style="padding:0 0.5rem;">
+          <!-- Les lives seront injectés ici -->
+        </div>
+      </div>
+
+
+
+      <div class="char-grid hidden" id="charGrid"></div>
+
+      <!-- État vide : quand la recherche ne donne rien. On reste sympa. -->
+      <div id="emptyState" class="empty-state" style="display:none; text-align:center; padding:5rem 2rem; opacity:0.6;">
+        <div style="font-size:4rem; margin-bottom:1.5rem;">🍃</div>
+        <h2 style="font-family:'Rajdhani',sans-serif; color:var(--primary-purple); margin-bottom:0.8rem;">C'est le calme
+          plat...</h2>
+        <p>On n'a trouvé personne qui correspond à ce que tu cherches.</p>
+        <div class="dev-tip" style="justify-content: center; margin-top: 1rem;">
+          Essaie peut-être avec un mot-clé plus simple ou change de catégorie ?
+        </div>
+      </div>
+
+    </main>
+  </div>
+
+  <!-- ══ MODAL ════════════════════════════════════════════════ -->
+  <div class="overlay hidden" id="overlay" onclick="overlayClick(event)">
+    <div class="modal" id="modal">
+      <div class="modal-head">
+        <div class="modal-photo" id="mPhoto"></div>
+        <div>
+          <div class="modal-name" id="mName"></div>
+          <div class="modal-sub" id="mRole"></div>
+          <div class="modal-tag" id="mTag"></div>
+        </div>
+        <button class="modal-close" onclick="closeModal()">×</button>
+      </div>
+      <div class="modal-body">
+        <div class="info-grid" id="mInfoGrid">
+          <div class="info-cell">
+            <label id="mLabel1">Groupe</label>
+            <div class="val" id="mGroupe">—</div>
+          </div>
+          <div class="info-cell">
+            <label id="mLabel2">Faction</label>
+            <div class="val" id="mFaction">—</div>
+          </div>
+          <div class="info-cell">
+            <label id="mLabel3">Statut</label>
+            <div class="val" id="mStatus">—</div>
+          </div>
+        </div>
+        <div id="mDescriptionArea" class="hidden"
+          style="margin-top:20px; border-top:1px solid var(--border); padding-top:20px;">
+          <label
+            style="display:block; font-size:0.85em; color:var(--text-soft); margin-bottom:10px; text-transform:uppercase; letter-spacing:1px;">Description
+            complète</label>
+          <div id="mDescription" style="line-height:1.6; color:var(--text); white-space:pre-wrap;"></div>
+        </div>
+        <div class="modal-actions" id="mActions"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ ADMIN LOGIN MODAL ═════════════════════════════════════ -->
+  <div class="overlay hidden" id="adminLoginOverlay">
+    <div class="modal" style="max-width: 350px; width: 90%; margin: auto;">
+      <div class="modal-head">
+        <div>
+          <div class="modal-name">Zone Réservée 🔐</div>
+          <div class="modal-sub">Identifie-toi pour accéder aux outils d'édition.</div>
+        </div>
+        <button class="modal-close" onclick="closeAdminLogin()">×</button>
+      </div>
+      <div class="modal-body" style="padding: 24px;">
+        <div style="margin-bottom: 15px;">
+          <label
+            style="display: block; font-size: 0.85em; color: var(--text-soft); margin-bottom: 5px;">Identifiant</label>
+          <input type="text" id="adminLoginUser"
+            style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid var(--border); background: rgba(0,0,0,0.2); color: var(--text);"
+            placeholder="Utilisateur">
+        </div>
+        <div style="margin-bottom: 15px;">
+          <label style="display: block; font-size: 0.85em; color: var(--text-soft); margin-bottom: 5px;">Mot de passe /
+            PIN</label>
+          <input type="password" id="adminLoginPass"
+            style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid var(--border); background: rgba(0,0,0,0.2); color: var(--text);"
+            placeholder="••••••••">
+        </div>
+        <div id="adminLoginError" class="hidden" style="color: var(--danger); font-size: 0.85em; margin-bottom: 15px;">
+          Accès refusé. Identifiants incorrects.</div>
+        <div style="display: flex; justify-content: flex-end; gap: 10px;">
+          <button class="btn btn-ghost" onclick="closeAdminLogin()">Annuler</button>
+          <button class="btn btn-primary" onclick="checkAdminLogin()">Connexion</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <!-- ══ SCRIPT ═══════════════════════════════════════════════ -->
+  <script>
+    /* 
+       Note du dev : 
+       J'ai gardé les variables en anglais parce que c'est l'habitude, 
+       mais le reste du site parle un français bien de chez nous. 
+    */
+    let characterList = [];
+    let hierarchyData = {};
+    let COMPANIES = [];
+    let ASSOCIATIONS = [];
+    const DEFAULT_PHOTO = 'assets/Flashback WL logo officiel.jpg'; // Le logo par défaut si on a pas de photo
+    let adminSearch = '';
+    let adminDraft = null;
+    let adminEditIndex = null;
+    let entDraft = null;
+    let entEditIndex = null;
+    let assocDraft = null;
+    let assocEditIndex = null;
+    let needsFullSync = false;
+    let adminGroupDraft = {
+      faction: 'legal',
+      label: '',
+      key: '',
+      icon: '🛡',
+      color: '#6c8fff',
+      bg: 'rgba(108,143,255,0.12)'
+    };
+
+    // Automatisation d'accès aux fichiers
+    let dirHandle = null;
+
+    async function requestDirectoryAccess() {
+      try {
+        dirHandle = await window.showDirectoryPicker({ mode: 'readwrite' });
+        // Une fois lié, on lance la synchro complète
+        await syncAllToDisk();
+      } catch (e) {
+        console.error("Accès dossier refusé ou annulé", e);
+      }
+    }
+
+    function updateSyncUI() {
+      const status = document.getElementById('syncStatus');
+      const icon = document.getElementById('syncStatusIcon');
+      const text = document.getElementById('syncStatusText');
+      const btn = document.getElementById('saveToDiskBtn');
+
+      if (needsFullSync) {
+        status.className = 'sync-status pending';
+        icon.textContent = '⚠️';
+        text.textContent = 'Non sauvegardé sur le disque';
+        btn.classList.add('glow');
+      } else {
+        status.className = 'sync-status saved';
+        icon.textContent = '✅';
+        text.textContent = 'Synchronisé sur le PC';
+        btn.classList.remove('glow');
+      }
+    }
+
+    async function syncAllToDisk() {
+      if (!dirHandle) {
+        const confirmSync = confirm("Pour sauvegarder définitivement vos modifications sur votre ordinateur, vous devez sélectionner votre dossier 'Catalogue RP'.\n\nVoulez-vous choisir le dossier maintenant ?");
+        if (!confirmSync) return;
+        return requestDirectoryAccess();
+      }
+
+      const btn = document.getElementById('saveToDiskBtn');
+      const oldText = btn.textContent;
+      btn.textContent = '⏳ Synchronisation...';
+      btn.disabled = true;
+
+      try {
+        // Sauvegarde de tous les fichiers
+        const files = [
+          { name: 'Characters.json', data: characterList },
+          { name: 'Groupes.json', data: hierarchyData },
+          { name: 'Entreprises.json', data: COMPANIES },
+          { name: 'Associations.json', data: ASSOCIATIONS }
+        ];
+
+        for (const file of files) {
+          const handle = await dirHandle.getFileHandle(file.name, { create: true });
+          const writable = await handle.createWritable();
+          await writable.write(JSON.stringify(file.data, null, 2));
+          await writable.close();
+        }
+
+        needsFullSync = false;
+        updateSyncUI();
+        console.log("Synchronisation complète réussie !");
+      } catch (e) {
+        console.error("Erreur lors de la synchronisation complète", e);
+        alert("Une erreur est survenue lors de l'écriture des fichiers. Vérifiez que vous avez bien autorisé l'accès au dossier.");
+      } finally {
+        btn.textContent = oldText;
+        btn.disabled = false;
+      }
+    }
+
+    function closeAdminPanel() {
+      if (needsFullSync) {
+        const confirmClose = confirm("⚠️ ATTENTION : Vous avez des modifications qui ne sont pas sauvegardées sur votre PC !\n\nSi vous fermez maintenant, vos changements pourraient être perdus si vous videz le cache de votre navigateur.\n\nVoulez-vous fermer quand même ?");
+        if (!confirmClose) return;
+      }
+      toggleAdmin();
+    }
+
+    function loadStoredGroups() {
+      try {
+        const saved = JSON.parse(localStorage.getItem('catalogueRP_groupes'));
+        return saved && typeof saved === 'object' ? saved : null;
+      } catch (e) {
+        return null;
+      }
+    }
+
+    async function saveGroupData() {
+      localStorage.setItem('catalogueRP_groupes', JSON.stringify(hierarchyData));
+      needsFullSync = true;
+      updateSyncUI();
+    }
+
+    function makeGroupKey(text) {
+      return String(text || '').toLowerCase().trim()
+        .replace(/\s+/g, '_')
+        .replace(/[^\w-]/g, '')
+        .replace(/^_+|_+$/g, '')
+        .slice(0, 40) || 'groupe';
+    }
+
+    function setAdminGroupDraft(field, value) {
+      adminGroupDraft[field] = value;
+      if (field === 'label' && !adminGroupDraft.key) {
+        adminGroupDraft.key = makeGroupKey(value);
+      }
+      renderAdminGroupManager();
+    }
+
+    function clearAdminGroupDraft() {
+      adminGroupDraft = {
+        faction: 'legal',
+        label: '',
+        key: '',
+        icon: '🛡',
+        color: '#6c8fff',
+        bg: 'rgba(108,143,255,0.12)'
+      };
+    }
+
+    function renderAdminGroupManager() {
+      const container = document.getElementById('adminGroups');
+      if (!container) return;
+
+      const groupRows = [];
+      let firstFactionProcessed = false;
+      for (const [factionKey, faction] of Object.entries(hierarchyData)) {
+        if (factionKey.startsWith('_')) continue;
+
+        if (firstFactionProcessed) {
+          groupRows.push(`
+            <tr>
+              <td colspan="5" style="padding: 0;">
+                <div style="height: 1px; background: rgba(255, 255, 255, 0.15); margin: 8px 0;"></div>
+              </td>
+            </tr>
+          `);
+        }
+        firstFactionProcessed = true;
+
+        const renderGroupRow = (key, groupe, hKey = null) => {
+          const hParam = hKey ? `'${hKey}'` : 'null';
+          const equipesHtml = Object.entries(groupe.equipes || {}).map(([eKey, e]) => `
+            <div class="admin-team-tag">
+              ${escHtml(e.label)}
+              <span class="remove-team" onclick="event.stopPropagation(); deleteEquipe('${factionKey}','${key}','${eKey}',${hParam})">×</span>
+            </div>
+          `).join('');
+
+          const rolesHtml = (groupe.roles || []).map((r, rIdx) => `
+            <div class="admin-team-tag" style="border-color:var(--accent)">
+              ${escHtml(r)}
+              <span class="remove-team" onclick="event.stopPropagation(); deleteRole('${factionKey}','${key}','${rIdx}',${hParam})">×</span>
+            </div>
+          `).join('');
+
+          return `
+            <tr>
+              <td><span class="stat-chip" style="font-size:0.7rem; padding:4px 8px">${escHtml(faction.label)}${hKey ? ' > ' + escHtml(faction.hierarchies[hKey].label) : ''}</span></td>
+              <td style="font-weight:700; color:var(--text)">${escHtml(groupe.label)}</td>
+              <td>
+                <div style="margin-bottom:8px; font-size:0.8rem; opacity:0.5; text-transform:uppercase; letter-spacing:0.5px;">Équipes</div>
+                <div class="admin-teams-list" style="margin-bottom:12px">
+                  ${equipesHtml}
+                  <div class="admin-add-team">
+                    <input type="text" placeholder="＋ Équipe..." id="addTeam_${key}">
+                    <button onclick="addEquipe('${factionKey}','${key}','${hKey}')">+</button>
+                  </div>
+                </div>
+                <div style="margin-bottom:8px; font-size:0.8rem; opacity:0.5; text-transform:uppercase; letter-spacing:0.5px;">Rôles / Rangs</div>
+                <div class="admin-teams-list">
+                  ${rolesHtml}
+                  <div class="admin-add-team">
+                    <input type="text" placeholder="＋ Rôle..." id="addRole_${key}">
+                    <button onclick="addRole('${factionKey}','${key}','${hKey}')">+</button>
+                  </div>
+                </div>
+              </td>
+              <td><span class="group-swatch" style="background:${groupe.bg || 'rgba(255,255,255,0.08)'};color:${groupe.color || '#fff'}">${escHtml(groupe.icon || '○')}</span></td>
+              <td style="text-align:right">
+                <button class="btn btn-ghost" style="color:var(--danger); border-color:transparent" onclick="deleteGroup('${factionKey}','${key}','${hKey}')">Supprimer</button>
+              </td>
+            </tr>`;
+        };
+
+        if (faction.hierarchies) {
+          for (const [hKey, hierarchie] of Object.entries(faction.hierarchies)) {
+            for (const [key, groupe] of Object.entries(hierarchie.groupes || {})) {
+              groupRows.push(renderGroupRow(key, groupe, hKey));
+            }
+          }
+        } else {
+          for (const [key, groupe] of Object.entries(faction.groupes || {})) {
+            groupRows.push(renderGroupRow(key, groupe));
+          }
+        }
+      }
+
+      container.innerHTML = `
+    <div class="admin-group-header" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem">
+      <div>
+        <h3 style="font-size:1.4rem; margin-bottom:0.2rem">Gestion des groupes</h3>
+        <p>Gère les factions, les groupes et leurs équipes respectives.</p>
+      </div>
+      <button class="btn btn-primary" onclick="openAdminGroupModal()">＋ Ajouter un groupe</button>
+    </div>
+    <div class="admin-group-grid">
+      <div class="admin-group-list">
+        <table class="admin-table">
+          <thead>
+            <tr>
+              <th>Structure</th>
+              <th>Groupe</th>
+              <th>Équipes & Rôles</th>
+              <th style="width:60px">Icône</th>
+              <th style="text-align:right">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${groupRows.length ? groupRows.join('') : '<tr><td colspan="5">Aucun groupe défini.</td></tr>'}
+          </tbody>
+        </table>
+      </div>
+    </div>`;
+    }
+
+    function openAdminGroupModal() {
+      const overlay = document.createElement('div');
+      overlay.id = 'adminGroupModal';
+      overlay.className = 'admin-modal-overlay';
+      overlay.onclick = (e) => { if (e.target === overlay) closeAdminGroupModal(); };
+
+      const factionOptions = Object.entries(hierarchyData)
+        .filter(([key]) => !key.startsWith('_'))
+        .map(([key, faction]) =>
+          `<option value="${escHtml(key)}"${adminGroupDraft.faction === key ? ' selected' : ''}>${escHtml(faction.label)}</option>`
+        ).join('');
+
+      overlay.innerHTML = `
+        <div class="admin-modal-content">
+          <div class="admin-modal-header">
+            <h3>Nouveau groupe</h3>
+            <p style="color:var(--text-muted)">Configurez les détails du nouveau groupe.</p>
+          </div>
+          <div class="admin-group-form-modal">
+            <div class="field-row">
+              <label>Faction</label>
+              <select onchange="setAdminGroupDraft('faction', this.value)">${factionOptions}</select>
+            </div>
+            ${adminGroupDraft.faction === 'illegal' ? `
+            <div class="field-row">
+              <label>Nom Hiérarchie</label>
+              <input type="text" value="${escHtml(adminGroupDraft.hierarchie || 'Hiérarchie')}" onchange="setAdminGroupDraft('hierarchie', this.value)">
+            </div>` : ''}
+            <div class="field-row">
+              <label>Label du groupe</label>
+              <input type="text" value="${escHtml(adminGroupDraft.label)}" onchange="setAdminGroupDraft('label', this.value)" placeholder="Ex: Sentinelles">
+            </div>
+            <div class="field-row">
+              <label>Clé interne (Auto)</label>
+              <input type="text" value="${escHtml(adminGroupDraft.key)}" onchange="setAdminGroupDraft('key', this.value)" placeholder="sentinelles">
+            </div>
+            <div class="field-row">
+              <label>Emoji / Icône</label>
+              <input type="text" value="${escHtml(adminGroupDraft.icon)}" onchange="setAdminGroupDraft('icon', this.value)" placeholder="🛡">
+            </div>
+            <div class="field-row">
+              <label>Couleur d'accentuation</label>
+              <input type="color" value="${escHtml(adminGroupDraft.color)}" onchange="setAdminGroupDraft('color', this.value)" style="height:50px">
+            </div>
+            <div style="display:flex; gap:1rem; margin-top:1rem">
+              <button class="btn btn-primary" onclick="saveAdminGroup()" style="flex:1">Créer le groupe</button>
+              <button class="btn btn-ghost" onclick="closeAdminGroupModal()">Annuler</button>
+            </div>
+          </div>
+        </div>
+      `;
+      document.body.appendChild(overlay);
+    }
+
+    function closeAdminGroupModal() {
+      const modal = document.getElementById('adminGroupModal');
+      if (modal) modal.remove();
+    }
+
+    function addRole(factionKey, groupKey, hierarchyKey) {
+      const input = document.getElementById(`addRole_${groupKey}`);
+      const label = input ? input.value.trim() : '';
+      if (!label) return;
+
+      const hKey = (hierarchyKey === 'null' || !hierarchyKey) ? null : hierarchyKey;
+      const group = hKey
+        ? hierarchyData[factionKey].hierarchies[hKey].groupes[groupKey]
+        : hierarchyData[factionKey].groupes[groupKey];
+
+      if (!group.roles) group.roles = [];
+      group.roles.push(label);
+
+      saveGroupData();
+      renderAdminGroupManager();
+    }
+
+    function deleteRole(factionKey, groupKey, roleIdx, hierarchyKey) {
+      if (!confirm('Supprimer ce rôle ?')) return;
+      const hKey = (hierarchyKey === 'null' || !hierarchyKey) ? null : hierarchyKey;
+      const group = hKey
+        ? hierarchyData[factionKey].hierarchies[hKey].groupes[groupKey]
+        : hierarchyData[factionKey].groupes[groupKey];
+
+      if (group && group.roles) {
+        group.roles.splice(roleIdx, 1);
+        saveGroupData();
+        renderAdminGroupManager();
+      }
+    }
+
+    function addEquipe(factionKey, groupKey, hierarchyKey) {
+      const input = document.getElementById(`addTeam_${groupKey}`);
+      const label = input ? input.value.trim() : '';
+      if (!label) return;
+
+      const hKey = (hierarchyKey === 'null' || !hierarchyKey) ? null : hierarchyKey;
+      const group = hKey
+        ? hierarchyData[factionKey].hierarchies[hKey].groupes[groupKey]
+        : hierarchyData[factionKey].groupes[groupKey];
+
+      if (!group.equipes) group.equipes = {};
+      const key = makeGroupKey(label);
+      group.equipes[key] = { label };
+
+      saveGroupData();
+      renderAdminGroupManager();
+      buildSidebar();
+      updateCounts();
+    }
+
+    function deleteGroup(factionKey, groupKey, hierarchyKey) {
+      if (!confirm('Tu es sûr de vouloir supprimer tout ce groupe ? Ça va aussi faire disparaître les équipes et les rôles qui vont avec...')) return;
+      const hKey = (hierarchyKey === 'null' || !hierarchyKey) ? null : hierarchyKey;
+
+      if (hKey) {
+        if (hierarchyData[factionKey]?.hierarchies?.[hKey]?.groupes?.[groupKey]) {
+          delete hierarchyData[factionKey].hierarchies[hKey].groupes[groupKey];
+        }
+      } else {
+        if (hierarchyData[factionKey]?.groupes?.[groupKey]) {
+          delete hierarchyData[factionKey].groupes[groupKey];
+        }
+      }
+
+      saveGroupData();
+      renderAdminGroupManager();
+      buildSidebar();
+      updateCounts();
+    }
+
+    function deleteEquipe(factionKey, groupKey, teamKey, hierarchyKey) {
+      if (!confirm('Souhaitez-vous vraiment supprimer cette équipe ?\n\nNote: Elle sera automatiquement retirée de tous les personnages qui la possèdent.')) return;
+
+      // Nettoyage du paramètre hierarchyKey (si 'null' en chaîne de caractères, on le repasse à null)
+      const hKey = (hierarchyKey === 'null' || !hierarchyKey) ? null : hierarchyKey;
+
+      try {
+        const group = hKey
+          ? hierarchyData[factionKey]?.hierarchies?.[hKey]?.groupes?.[groupKey]
+          : hierarchyData[factionKey]?.groupes?.[groupKey];
+
+        if (group && group.equipes && group.equipes[teamKey]) {
+          delete group.equipes[teamKey];
+          console.log(`Équipe ${teamKey} supprimée du groupe ${groupKey}`);
+        } else {
+          console.warn("Impossible de trouver l'équipe ou le groupe cible", { factionKey, groupKey, teamKey, hKey });
+        }
+
+        // NETTOYAGE AUTO des personnages
+        let charsUpdated = false;
+        characterList.forEach(c => {
+          if (c.groupe === groupKey && c.equipe === teamKey) {
+            c.equipe = '';
+            charsUpdated = true;
+          }
+        });
+
+        // Sauvegardes
+        saveGroupData();
+        if (charsUpdated) {
+          saveAdminData();
+        }
+
+        // Rafraîchissement complet de l'interface
+        renderAdminGroupManager();
+        buildSidebar();
+        updateCounts();
+        if (typeof renderAdminPanel === 'function') renderAdminPanel();
+        renderGrid();
+      } catch (err) {
+        console.error("Erreur lors de la suppression de l'équipe:", err);
+        alert("Une erreur est survenue lors de la suppression.");
+      }
+    }
+
+    function saveAdminGroup() {
+      const label = String(adminGroupDraft.label || '').trim();
+      const key = String(adminGroupDraft.key || '').trim() || makeGroupKey(label);
+      if (!label) return showError('Le label du groupe est requis.');
+      if (!key) return showError('La clé du groupe est invalide.');
+
+      const factionKey = adminGroupDraft.faction || 'legal';
+      const icon = String(adminGroupDraft.icon || '').trim() || '○';
+      const color = String(adminGroupDraft.color || '').trim() || '#6c8fff';
+
+      if (!hierarchyData[factionKey]) {
+        hierarchyData[factionKey] = { label: factionKey, groupes: {} };
+      }
+
+      const newGroup = {
+        label,
+        icon,
+        color,
+        bg: `rgba(${hexToRgb(color)}, 0.12)`,
+        equipes: {}
+      };
+
+      const exists = Object.values(hierarchyData).some(f =>
+        f.groupes?.[key] ||
+        (f.hierarchies && Object.values(f.hierarchies).some(h => h.groupes?.[key]))
+      );
+      if (exists) return showError('Cette clé de groupe existe déjà.');
+
+      if (factionKey === 'illegal') {
+        const hLabel = String(adminGroupDraft.hierarchie || 'Hiérarchie').trim();
+        const hKey = makeGroupKey(hLabel);
+        if (!hierarchyData[factionKey].hierarchies) hierarchyData[factionKey].hierarchies = {};
+        if (!hierarchyData[factionKey].hierarchies[hKey]) hierarchyData[factionKey].hierarchies[hKey] = { label: hLabel, groupes: {} };
+        hierarchyData[factionKey].hierarchies[hKey].groupes[key] = { label, icon, color, bg: adminGroupDraft.bg };
+      } else {
+        hierarchyData[factionKey].groupes = hierarchyData[factionKey].groupes || {};
+        hierarchyData[factionKey].groupes[key] = { label, icon, color, bg: adminGroupDraft.bg };
+      }
+
+      saveGroupData();
+      clearAdminGroupDraft();
+      renderAdminPanel();
+      updateCounts();
+      renderGrid();
+    }
+
+    let liveSet = new Set();
+    let activeFilter = { type: 'all', value: 'all' };
+    let activeSort = 'nom';
+
+    /* ─────────────────────────────────────────────────────────
+       INIT
+    ───────────────────────────────────────────────────────── */
+    async function loadData() {
+      // Préparation des ressources en parallèle
+      const fetchPromises = [
+        fetch('config.json').catch(() => null),
+        fetch('Groupes.json').catch(() => null),
+        fetch('Characters.json').catch(() => null),
+        fetch('Entreprises.json').catch(() => null),
+        fetch('Associations.json').catch(() => null)
+      ];
+
+      try {
+        const [configRes, groupesRes, charsRes, entRes, assocRes] = await Promise.all(fetchPromises);
+
+        // CONFIG
+        if (configRes && configRes.ok) {
+          try { CONFIG = await configRes.json(); } catch (e) { console.warn("Erreur config.json", e); }
+        }
+
+        // hierarchyData
+        if (groupesRes && groupesRes.ok) {
+          try {
+            hierarchyData = await groupesRes.json();
+            const stored = loadStoredGroups();
+            if (stored) hierarchyData = stored;
+          } catch (e) { console.warn("Erreur Groupes.json", e); }
+        }
+
+        // Chargement des PERSONNAGES
+        if (charsRes && charsRes.ok) {
+          try {
+            const data = await charsRes.json();
+            characterList = Array.isArray(data) ? data.filter(c => c.nom) : [];
+            // Priorité au cache local si l'utilisateur a déjà bossé dessus
+            const stored = JSON.parse(localStorage.getItem('catalogueRP_chars'));
+            if (stored && stored.length) characterList = stored;
+          } catch (e) { console.warn("Souci avec Characters.json, on fait sans.", e); }
+        }
+
+        // COMPANIES
+        if (entRes && entRes.ok) {
+          try {
+            const data = await entRes.json();
+            COMPANIES = Array.isArray(data) ? data : [];
+            const stored = JSON.parse(localStorage.getItem('catalogueRP_ents'));
+            if (stored && stored.length) COMPANIES = stored;
+          } catch (e) { console.warn("Erreur Entreprises.json", e); }
+        } else {
+          try { COMPANIES = JSON.parse(localStorage.getItem('catalogueRP_ents')) || []; } catch (e) { }
+        }
+
+        // ASSOCIATIONS
+        if (assocRes && assocRes.ok) {
+          try {
+            const data = await assocRes.json();
+            ASSOCIATIONS = Array.isArray(data) ? data : [];
+            const stored = JSON.parse(localStorage.getItem('catalogueRP_assocs'));
+            if (stored && stored.length) ASSOCIATIONS = stored;
+          } catch (e) { console.warn("Erreur Associations.json", e); }
+        } else {
+          try { ASSOCIATIONS = JSON.parse(localStorage.getItem('catalogueRP_assocs')) || []; } catch (e) { }
+        }
+
+        // Synchronisation des entreprises et associations vers les groupes légaux (Automatique au chargement)
+        COMPANIES.forEach(ent => syncEntToGroup(ent, false));
+        ASSOCIATIONS.forEach(assoc => syncAssocToGroup(assoc, false));
+
+      } catch (globalError) {
+        console.error("Erreur critique de chargement", globalError);
+      } finally {
+        // QUOI QU'IL ARRIVE, on initialise l'interface
+        init();
+      }
+    }
+
+    function init() {
+      if (CONFIG.serveur?.nom) {
+        document.getElementById('serverName').textContent = CONFIG.serveur.nom;
+        document.title = CONFIG.serveur.nom + ' — Catalogue';
+        const welcomeName = document.getElementById('serverNameWelcome');
+        if (welcomeName) welcomeName.textContent = CONFIG.serveur.nom;
+      }
+
+      // Feature Detection FileSystem Access API
+      const syncContainer = document.getElementById('adminSyncContainer');
+      const syncNote = document.getElementById('syncNote');
+      if ('showDirectoryPicker' in window && syncContainer) {
+        syncContainer.innerHTML = `
+          <button class="btn btn-primary" id="dirSyncBtn" onclick="requestDirectoryAccess()" style="width:100%; font-size: 1.1em; padding: 12px; background: linear-gradient(135deg, #1f42ff 0%, #a450ff 100%);">🔗 Lier au dossier Catalogue RP pour sauvegarder automatiquement</button>
+          <div style="display:flex; gap:10px; margin-top: 10px;">
+            <button class="btn btn-ghost" onclick="downloadCharactersJson()">Télécharger Characters</button>
+            <button class="btn btn-ghost" onclick="downloadGroupesJson()">Télécharger Groupes</button>
+            <button class="btn btn-ghost" onclick="restoreOriginalData()" style="color: var(--color-illegal); margin-left:auto;">❌ Réinitialiser cache</button>
+          </div>
+        `;
+        syncNote.innerHTML = '<strong>Automatisation Disponible !</strong> Cliquez sur le bouton "Lier au dossier" ci-dessus, puis sélectionnez votre dossier <code>Catalogue RP</code>. En autorisant la modification, toutes vos créations de groupes et de personnages s\'écriront <strong>directement et instantanément</strong> dans vos fichiers <code>.json</code> locaux !';
+        syncNote.style.borderColor = '#b07eff';
+      }
+
+      buildSidebar();
+      updateCounts();
+
+      if (CONFIG.twitch?.client_id && CONFIG.twitch?.access_token) {
+        document.getElementById('configAlert').classList.add('hidden');
+        refreshLive();
+        const interval = (CONFIG.twitch.refresh_interval_minutes || 2) * 60 * 1000;
+        setInterval(refreshLive, interval);
+      }
+
+      // Vue par défaut : Général
+      const btnGen = document.getElementById('btnGeneral');
+      if (btnGen) {
+        setFilter('general', 'main', btnGen);
+      } else {
+        renderGrid();
+      }
+    }
+
+    /* ─────────────────────────────────────────────────────────
+       TWITCH LIVE
+    ───────────────────────────────────────────────────────── */
+    async function refreshLive() {
+      const { client_id, access_token } = CONFIG.twitch || {};
+      if (!client_id || !access_token) return;
+
+      const btn = document.getElementById('twitchBtn');
+      btn.textContent = '⟳ Vérification…';
+      btn.className = '';
+
+      const logins = characterList.filter(c => c.twitch).map(c => c.twitch.toLowerCase());
+      if (!logins.length) { btn.textContent = '✓ Aucun stream'; btn.className = 'ok'; return; }
+
+      liveSet = new Set();
+      try {
+        // Batches de 100 (limite Twitch API)
+        for (let i = 0; i < logins.length; i += 100) {
+          const batch = logins.slice(i, i + 100);
+          const params = batch.map(l => `user_login=${encodeURIComponent(l)}`).join('&');
+          const res = await fetch(`https://api.twitch.tv/helix/streams?${params}`, {
+            headers: {
+              'Client-Id': client_id,
+              'Authorization': `Bearer ${access_token}`
+            }
+          });
+          if (!res.ok) throw new Error(`Twitch API ${res.status}`);
+          const data = await res.json();
+          (data.data || []).forEach(s => liveSet.add(s.user_login.toLowerCase()));
+        }
+        const ts = new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+        btn.textContent = `✓ Live vérifié ${ts}`;
+        btn.className = 'ok';
+      } catch (e) {
+        console.error('Twitch API error:', e);
+        btn.textContent = '✗ Erreur Twitch';
+        btn.className = 'err';
+      }
+
+      updateCounts();
+      renderGrid();
+    }
+
+    function isLive(char) {
+      if (!char.twitch) return false;
+      // Si l'API Twitch est configurée, utiliser liveSet
+      if (CONFIG.twitch?.client_id) return liveSet.has(char.twitch.toLowerCase());
+      // Sinon, utiliser le champ JSON (mis à jour manuellement)
+      return !!char.live;
+    }
+
+    /* ─────────────────────────────────────────────────────────
+       SIDEBAR
+    ───────────────────────────────────────────────────────── */
+    function buildSidebar() {
+      const tree = document.getElementById('factionTree');
+      const charsInGroups = characterList.filter(c => c.faction);
+
+      tree.innerHTML = `
+        <div class="faction-section">
+          <div class="faction-header" onclick="toggleFaction(this)" style="color:#ffffff">
+            <span style="font-size:13px">👤</span>
+            <span class="faction-header-label" style="color:#ffffff">PERSONNAGE</span>
+          </div>
+          <div class="faction-groups" id="personnageGroups" style="padding-left: 5px; margin-left: 5px;">
+            <!-- Bouton Global placé ici -->
+          </div>
+        </div>
+        <div class="sb-divider"></div>
+      `;
+
+      const persGroups = document.getElementById('personnageGroups');
+
+      // AJOUT : Bouton "Tous les personnages" (Global)
+      const globalAllBtn = makeSbBtn(
+        'Tous les personnages',
+        { bg: 'rgba(255,255,255,0.05)', color: '#fff', icon: '👥' },
+        'all:all'
+      );
+      persGroups.appendChild(globalAllBtn);
+
+      for (const [factionKey, faction] of Object.entries(hierarchyData)) {
+        if (factionKey.startsWith('_')) continue;
+
+        const factionColor = faction.color || '#9499b8';
+        const section = document.createElement('div');
+        section.className = 'faction-section collapsed';
+        section.innerHTML = `
+          <div class="faction-header" onclick="toggleFaction(this)" style="color:${factionColor}">
+            <span style="font-size:13px">${factionKey === 'legal' ? '🔵' : '🔴'}</span>
+            <span class="faction-header-label" style="color:${factionColor}">${faction.label}</span>
+            <span class="arrow">▼</span>
+          </div>
+          <div class="faction-groups"></div>
+        `;
+
+        const groupsDiv = section.querySelector('.faction-groups');
+        // SUPPRESSION : Le bouton "Tous" par faction a été retiré ici
+
+        if (faction.hierarchies) {
+          // Si la faction utilise des hiérarchies (ex: illegal)
+          for (const [hierarchieKey, hierarchie] of Object.entries(faction.hierarchies)) {
+            if (hierarchieKey.startsWith('_')) continue;
+
+            const hSection = document.createElement('div');
+            hSection.className = 'faction-section';
+
+            let countH = 0;
+            if (hierarchie.groupes) {
+              for (const [gk, _g] of Object.entries(hierarchie.groupes)) {
+                countH += characterList.filter(c => c.groupe === gk).length;
+              }
+            }
+
+            hSection.innerHTML = `
+              <div class="faction-header" onclick="toggleFaction(this)" style="color:${factionColor}">
+                <span style="font-size:13px">📁</span>
+                <span class="faction-header-label" style="color:${factionColor}">${hierarchie.label}</span>
+                <span class="arrow">▼</span>
+              </div>
+              <div class="faction-groups" style="padding-left:12px"></div>
+            `;
+
+            const hGroupsDiv = hSection.querySelector('.faction-groups');
+
+            for (const [groupeKey, groupe] of Object.entries(hierarchie.groupes || {})) {
+              if (groupeKey.startsWith('_')) continue;
+              const gContainer = document.createElement('div');
+              gContainer.className = 'faction-section';
+
+              const btn = makeSbBtn(groupe.label, groupe, `groupe:${groupeKey}`);
+              gContainer.appendChild(btn);
+              hGroupsDiv.appendChild(gContainer);
+            }
+
+            groupsDiv.appendChild(hSection);
+          }
+        } else {
+          // Fonctionnement classique (Factions -> Groupes)
+          for (const [groupeKey, groupe] of Object.entries(faction.groupes || {})) {
+            if (groupeKey.startsWith('_')) continue;
+
+            const gContainer = document.createElement('div');
+            gContainer.className = 'faction-section';
+
+            const btn = makeSbBtn(groupe.label, groupe, `groupe:${groupeKey}`);
+            gContainer.appendChild(btn);
+            groupsDiv.appendChild(gContainer);
+          }
+        }
+
+        persGroups.appendChild(section);
+      }
+    }
+
+    function makeSbBtn(label, groupe, filterVal) {
+      const btn = document.createElement('button');
+      btn.className = 'sb-btn';
+      btn.dataset.filter = filterVal;
+      btn.dataset.groupe = filterVal.split(':')[1];
+      btn.innerHTML = `
+    <span class="sb-icon" style="background:${groupe.bg || 'rgba(255,255,255,0.05)'};color:${groupe.color || '#9499b8'}">${groupe.icon || '○'}</span>
+    ${label}
+  `;
+      const [type, value] = filterVal.split(':');
+      btn.onclick = () => setFilter(type, value, btn);
+      return btn;
+    }
+
+    function setFilter(type, value, btn) {
+      // Pour les équipes, on récupère le groupe parent stocké dans dataset
+      const gKey = (type === 'equipe') ? (btn ? btn.dataset.groupe : activeFilter.gKey) : value;
+      activeFilter = { type, value, gKey: gKey };
+
+      // Gestion visuelle des boutons sidebar
+      document.querySelectorAll('.sb-btn').forEach(b => b.classList.remove('active'));
+      if (btn && btn.classList.contains('sb-btn')) btn.classList.add('active');
+
+      const charGrid = document.getElementById('charGrid');
+      const generalView = document.getElementById('generalView');
+      const viewHeader = document.querySelector('.view-header');
+      const teamTabs = document.getElementById('teamTabs');
+
+      // Masquer TOUTES les vues par sécurité
+      const wikiViews = ['generalView', 'entreprisesView', 'servicesView', 'associationsView', 'politiqueView', 'tvView'];
+      wikiViews.forEach(vid => {
+        const v = document.getElementById(vid);
+        if (v) v.classList.add('hidden');
+      });
+
+      if (type === 'general' || type === 'wiki') {
+        charGrid.classList.add('hidden');
+        if (viewHeader) viewHeader.classList.add('hidden');
+        if (teamTabs) teamTabs.classList.add('hidden');
+
+        // Afficher la vue spécifique
+        let targetId = 'generalView';
+        if (type === 'wiki') {
+          targetId = value + 'View';
+          if (value === 'entreprises') renderEntreprises();
+          if (value === 'associations') renderAssociations();
+          if (value === 'tv') renderTV();
+        }
+        const targetView = document.getElementById(targetId);
+        if (targetView) targetView.classList.remove('hidden');
+      } else {
+        charGrid.classList.remove('hidden');
+        if (viewHeader) viewHeader.classList.remove('hidden');
+
+        // Détection du titre de la vue
+        const titles = { 'all:all': 'Tous les personnages', 'live:live': 'En Live' };
+        let title = titles[`${type}:${value}`];
+        if (!title) {
+          if (type === 'faction') {
+            const f = hierarchyData[value];
+            title = f ? f.label : value;
+          } else if (type === 'groupe' || type === 'equipe') {
+            const targetGroup = (type === 'equipe') ? activeFilter.gKey : value;
+            for (const f of Object.values(hierarchyData)) {
+              if (f.groupes?.[targetGroup]) { title = f.groupes[targetGroup].label; break; }
+              if (f.hierarchies) {
+                for (const h of Object.values(f.hierarchies)) {
+                  if (h.groupes?.[targetGroup]) { title = h.groupes[targetGroup].label; break; }
+                }
+              }
+            }
+            if (type === 'equipe') title = (title || 'Groupe') + ` — ${value}`;
+          }
+        }
+        const viewTitle = document.getElementById('viewTitle');
+        if (viewTitle) viewTitle.innerHTML = `${title || value} <span id="viewCount">0</span>`;
+
+        renderTeamTabs(type, value, btn);
+      }
+
+      renderGrid();
+    }
+
+    function renderTeamTabs(type, value, btn) {
+      const container = document.getElementById('teamTabs');
+      if (!container) return;
+
+      let gKey = null;
+      if (type === 'groupe') gKey = value;
+      if (type === 'equipe') gKey = activeFilter.gKey;
+
+      if (!gKey) {
+        container.innerHTML = '';
+        container.classList.add('hidden');
+        return;
+      }
+
+      // Scanner characterList pour trouver les équipes uniques dans ce groupe
+      const equipesUniques = [...new Set(
+        characterList.filter(c => c.groupe === gKey && c.equipe)
+          .map(c => c.equipe)
+      )].sort();
+
+      if (equipesUniques.length === 0) {
+        container.innerHTML = '';
+        container.classList.add('hidden');
+        return;
+      }
+
+      container.classList.remove('hidden');
+      const tabs = [];
+      tabs.push(`<button class="team-tab ${type === 'groupe' ? 'active' : ''}" onclick="setFilter('groupe', '${gKey}')">Tous</button>`);
+
+      equipesUniques.forEach(eName => {
+        const isActive = (type === 'equipe' && value === eName);
+        tabs.push(`<button class="team-tab ${isActive ? 'active' : ''}" data-groupe="${gKey}" onclick="setFilter('equipe', '${escHtml(eName)}', this)">${escHtml(eName)}</button>`);
+      });
+      container.innerHTML = tabs.join('');
+    }
+
+    function setSort(key, btn) {
+      activeSort = key;
+      document.querySelectorAll('.sort-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      applyFilters();
+    }
+
+    function applyFilters() { renderGrid(); }
+
+    function getFiltered() {
+      const search = document.getElementById('searchInput').value.toLowerCase().trim();
+      const { type, value } = activeFilter;
+
+      return characterList.filter(c => {
+        if (!c.nom) return false;
+
+        // Source de vérité : on regarde la faction du Groupe, pas l'étiquette sur le perso
+        const meta = getGroupeMeta(c.groupe);
+        const realFaction = meta ? meta.faction : c.faction;
+
+        // Filtre de Faction
+        if (type === 'faction' && realFaction !== value) return false;
+
+        // Filtre de Groupe
+        if (type === 'groupe' && c.groupe !== value) return false;
+
+        // Filtre d'Équipe
+        if (type === 'equipe') {
+          if (!c.equipe || c.equipe !== value) return false;
+          if (activeFilter.gKey && c.groupe !== activeFilter.gKey) return false;
+        }
+
+        // Filtre Live
+        if (type === 'live' && !isLive(c)) return false;
+
+        // Recherche textuelle
+        if (search) {
+          const hay = [c.nom, c.role, c.twitch, c.groupe, realFaction]
+            .filter(Boolean).join(' ').toLowerCase();
+          if (!hay.includes(search)) return false;
+        }
+        return true;
+      }).sort((a, b) => {
+        if (activeSort === 'live') return isLive(b) - isLive(a);
+        if (activeSort === 'id') return a.id.localeCompare(b.id, undefined, { numeric: true });
+        return a.nom.localeCompare(b.nom, 'fr');
+      });
+    }
+
+    function toggleFaction(header) {
+      const section = header.parentElement;
+      section.classList.toggle('collapsed');
+      header.classList.toggle('collapsed');
+    }
+
+    /* ─────────────────────────────────────────────────────────
+       RENDU GRILLE
+    ───────────────────────────────────────────────────────── */
+    function renderGrid() {
+      const filtered = getFiltered();
+      const grid = document.getElementById('charGrid');
+      const empty = document.getElementById('emptyState');
+      if (!grid) return;
+
+      document.getElementById('viewCount').textContent = filtered.length;
+      grid.innerHTML = '';
+
+      if (filtered.length === 0) {
+        if (empty) empty.style.display = 'block';
+        return;
+      }
+      if (empty) empty.style.display = 'none';
+
+      grid.innerHTML = filtered.map((c, i) => {
+        const meta = getGroupeMeta(c.groupe);
+        const live = isLive(c);
+        const imgUrl = c.photo || DEFAULT_PHOTO;
+        const avatar = `<div class="char-avatar has-photo" style="background-image:url('${encodeURI(imgUrl)}')">`;
+
+        return `
+    <div class="char-card"
+         data-faction="${escHtml(c.faction)}"
+         onclick="openModal(${characterList.indexOf(c)})"
+         style="animation-delay:${Math.min(i * 0.03, 0.4)}s">
+      ${avatar}
+        <span class="char-badge" style="background:${meta.bg};color:${meta.color}">
+          ${meta.icon} ${meta.label}
+        </span>
+      </div>
+      <div class="char-body">
+        <div class="char-name">${escHtml(c.nom)} ${c.equipe ? `<span class="team-dot-label" title="${escHtml(c.equipe)}">●</span>` : ''}</div>
+        <div class="char-role">${escHtml(c.role || '—')}</div>
+        ${c.equipe ? `<div class="char-team-name">${escHtml(c.equipe)}</div>` : ''}
+        <div class="char-meta">
+          <span class="live-tag ${live ? 'on' : 'off'}">
+            ${live ? '<span class="logo-flash" style="font-size:1rem; filter:none; margin-right:4px;">⚡</span>' : '<span class="live-dot"></span>'}
+            ${live ? 'LIVE' : 'Offline'}
+          </span>
+        </div>
+      </div>
+    </div>`;
+      }).join('');
+    }
+
+    /* ─────────────────────────────────────────────────────────
+       COMPTEURS SIDEBAR
+    ───────────────────────────────────────────────────────── */
+    function updateCounts() {
+      document.getElementById('countTotal').textContent = characterList.length;
+      const liveCount = characterList.filter(isLive).length;
+      document.getElementById('countLiveHdr').textContent = liveCount;
+    }
+
+    function setAdminView(view, btn) {
+      // Gestion des boutons sidebar admin
+      document.querySelectorAll('.admin-aside-btn').forEach(b => b.classList.remove('active'));
+      if (btn) btn.classList.add('active');
+
+      // Masquer toutes les vues
+      const views = ['chars', 'groups', 'sync', 'entreprises', 'services', 'associations', 'politique'];
+      views.forEach(v => {
+        const el = document.getElementById(`adminView_${v}`);
+        if (el) el.classList.add('hidden');
+      });
+
+      const titles = {
+        'chars': '— Personnages',
+        'groups': '— Gestion des groupes',
+        'sync': '— Synchronisation',
+        'entreprises': '— Entreprises',
+        'services': '— Services publics',
+        'associations': '— Associations',
+        'politique': '— Vie politique'
+      };
+      document.getElementById('adminActiveTitle').textContent = titles[view] || '';
+
+      // Afficher la bonne vue
+      const target = document.getElementById(`adminView_${view}`);
+      if (target) target.classList.remove('hidden');
+
+      // Si on passe sur chars, on refresh
+      if (view === 'chars') renderAdminPanel();
+      if (view === 'groups') renderAdminGroupManager();
+      if (view === 'entreprises') renderAdminEntreprises();
+      if (view === 'associations') renderAdminAssociations();
+    }
+
+    function requireAdmin() {
+      if (sessionStorage.getItem('adminAuth') === 'true') {
+        toggleAdmin();
+      } else {
+        document.getElementById('adminLoginOverlay').classList.remove('hidden');
+        document.getElementById('adminLoginUser').value = '';
+        document.getElementById('adminLoginPass').value = '';
+        document.getElementById('adminLoginError').classList.add('hidden');
+      }
+    }
+
+    function closeAdminLogin() {
+      document.getElementById('adminLoginOverlay').classList.add('hidden');
+      document.getElementById('adminLoginError').classList.add('hidden');
+    }
+
+    /* On vérifie si c'est bien un admin. On est pas trop méchants sur les messages. */
+    function checkAdminLogin() {
+      const u = document.getElementById('adminLoginUser').value;
+      const p = document.getElementById('adminLoginPass').value;
+      const err = document.getElementById('adminLoginError');
+
+      const cfgU = (CONFIG.admin && CONFIG.admin.pwd) ? CONFIG.admin.pwd : 'admin';
+      const cfgP = (CONFIG.admin && CONFIG.admin.pin) ? CONFIG.admin.pin : '1234';
+
+      if (u === cfgU && p === cfgP) {
+        sessionStorage.setItem('adminAuth', 'true');
+        err.classList.add('hidden');
+        closeAdminLogin();
+        toggleAdmin();
+      } else {
+        err.textContent = "Aïe, ce n'est pas le bon code... Réessaie encore ?";
+        err.classList.remove('hidden');
+      }
+    }
+
+    function toggleAdmin() {
+      const panel = document.getElementById('adminPanel');
+      panel.classList.toggle('hidden');
+      if (!panel.classList.contains('hidden')) {
+        document.body.style.overflow = 'hidden'; // Lock scroll
+        document.documentElement.style.overflow = 'hidden'; // Lock HTML scroll
+        setAdminView('chars', document.getElementById('adminBtn_chars'));
+      } else {
+        document.body.style.overflow = ''; // Unlock scroll
+        document.documentElement.style.overflow = ''; // Unlock HTML scroll
+      }
+    }
+
+    function setAdminSearch(value) {
+      adminSearch = value.toLowerCase().trim();
+      renderAdminPanel();
+    }
+
+    function renderAdminPanel() {
+      const adminList = document.getElementById('adminList');
+      const editor = document.getElementById('adminEditor');
+      const filtered = characterList.map((c, idx) => ({ c, idx }))
+        .filter(({ c }) => {
+          if (!adminSearch) return true;
+          const meta = getGroupeMeta(c.groupe);
+          const factionLabel = meta.faction === 'legal' ? 'Légal' : 'Illégal';
+          const hay = [c.nom, c.role, c.twitch, meta.label, factionLabel]
+            .filter(Boolean).join(' ').toLowerCase();
+          return hay.includes(adminSearch);
+        })
+        .sort((a, b) => (a.c.nom || '').localeCompare(b.c.nom || ''));
+
+      if (adminDraft) {
+        editor.classList.remove('hidden');
+        renderAdminEditor();
+      } else {
+        editor.classList.add('hidden');
+      }
+
+      const rows = filtered.map(({ c, idx }) => {
+        const meta = getGroupeMeta(c.groupe);
+        const factionLabel = meta.faction === 'legal' ? '🔵 Légal' : '🔴 Illégal';
+
+        return `
+    <tr>
+      <td>${escHtml(c.nom)}</td>
+      <td>${escHtml(factionLabel)}</td>
+      <td>${escHtml(meta.label)}</td>
+      <td>${escHtml(c.role || '')}</td>
+      <td>${escHtml(c.twitch || '')}</td>
+      <td>${c.photo ? '✔️' : '—'}</td>
+      <td><button class="btn btn-ghost" onclick="startEditCharacter(${idx})">Modifier</button></td>
+    </tr>`;
+      }).join('');
+
+      adminList.innerHTML = `
+    <table class="admin-table">
+      <thead>
+        <tr>
+          <th>Nom</th>
+          <th>Faction</th>
+          <th>Groupe</th>
+          <th>Rôle</th>
+          <th>Twitch</th>
+          <th>Photo</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+    }
+
+
+    function startCreateCharacter() {
+      adminEditIndex = null;
+      adminDraft = {
+        nom: ' | ',
+        faction: 'legal',
+        groupe: '',
+        equipe: '',
+        role: '',
+        twitch: '',
+        photo: DEFAULT_PHOTO
+      };
+      const panel = document.getElementById('adminPanel');
+      panel.classList.remove('hidden');
+      renderAdminPanel();
+    }
+
+    function startEditCharacter(idx) {
+      const character = characterList[idx];
+      if (!character) return;
+      adminEditIndex = idx;
+      adminDraft = { ...character };
+      if (!adminDraft.equipe) adminDraft.equipe = '';
+      const panel = document.getElementById('adminPanel');
+      panel.classList.remove('hidden');
+      renderAdminPanel();
+    }
+
+    function renderAdminEditor() {
+      const editor = document.getElementById('adminEditor');
+      if (!adminDraft) {
+        editor.classList.add('hidden');
+        return;
+      }
+      editor.classList.remove('hidden');
+
+      document.getElementById('editorNom').value = adminDraft.nom || '';
+      document.getElementById('editorFaction').value = adminDraft.faction || 'legal';
+
+      const groupOptions = [];
+      for (const [factionKey, faction] of Object.entries(hierarchyData)) {
+        if (factionKey !== adminDraft.faction) continue;
+        if (faction.hierarchies) {
+          for (const [hKey, h] of Object.entries(faction.hierarchies)) {
+            for (const [key, groupe] of Object.entries(h.groupes || {})) {
+              groupOptions.push({ key, label: `${h.label} > ${groupe.label}`, meta: groupe });
+            }
+          }
+        } else {
+          for (const [key, groupe] of Object.entries(faction.groupes || {})) {
+            groupOptions.push({ key, label: groupe.label, meta: groupe });
+          }
+        }
+      }
+
+      const groupField = document.getElementById('editorGroupe');
+      if (!groupOptions.some(g => g.key === adminDraft.groupe) && groupOptions.length) {
+        adminDraft.groupe = groupOptions[0].key;
+      }
+      groupField.innerHTML = groupOptions.map(g =>
+        `<option value="${escHtml(g.key)}"${adminDraft.groupe === g.key ? ' selected' : ''}>${escHtml(g.label)}</option>`
+      ).join('');
+
+      // Équipes
+      const equipeField = document.getElementById('editorEquipe');
+      const equipeRow = document.getElementById('editorEquipeRow');
+      const selectedGroupMeta = groupOptions.find(g => g.key === adminDraft.groupe)?.meta;
+
+      if (selectedGroupMeta && selectedGroupMeta.equipes && Object.keys(selectedGroupMeta.equipes).length > 0) {
+        if (equipeRow) equipeRow.classList.remove('hidden');
+        const eOptions = [
+          { key: '', label: '— Aucune équipe —' },
+          ...Object.entries(selectedGroupMeta.equipes).map(([k, e]) => ({ key: k, label: e.label }))
+        ];
+        equipeField.innerHTML = eOptions.map(e =>
+          `<option value="${escHtml(e.key)}"${adminDraft.equipe === e.key ? ' selected' : ''}>${escHtml(e.label)}</option>`
+        ).join('');
+      } else {
+        // Garde-fou pour ne pas écraser une équipe si on change de groupe vers un sans équipes
+        adminDraft.equipe = '';
+      }
+      if (equipeRow) equipeRow.classList.remove('hidden');
+
+      // Bouton Supprimer (Rouge)
+      const deleteBtn = document.getElementById('editorDeleteBtn');
+      if (deleteBtn) {
+        if (adminEditIndex !== null) deleteBtn.classList.remove('hidden');
+        else deleteBtn.classList.add('hidden');
+      }
+
+      // Rôle
+      const roleFieldWrap = document.getElementById('editorRoleWrap');
+      if (selectedGroupMeta && selectedGroupMeta.roles && selectedGroupMeta.roles.length > 0) {
+        roleFieldWrap.innerHTML = `
+          <label for="editorRole">Rôle / Rang</label>
+          <select id="editorRole" onchange="updateAdminDraft('role', this.value)">
+            <option value="">— Choisir un rôle —</option>
+            ${selectedGroupMeta.roles.map(r => `<option value="${escHtml(r)}"${adminDraft.role === r ? ' selected' : ''}>${escHtml(r)}</option>`).join('')}
+          </select>
+        `;
+      } else {
+        roleFieldWrap.innerHTML = `
+          <label for="editorRole">Rôle / Rang</label>
+          <input id="editorRole" type="text" value="${escHtml(adminDraft.role || '')}" placeholder="Ex: Capitaine" oninput="updateAdminDraft('role', this.value)">
+        `;
+      }
+      document.getElementById('editorTwitch').value = adminDraft.twitch || '';
+      document.getElementById('editorPhoto').value = adminDraft.photo || '';
+      renderEditorPreview();
+    }
+
+    function updateAdminDraft(field, value) {
+      if (!adminDraft) return;
+      adminDraft[field] = value;
+      // Si on change de faction ou de groupe, il faut recalculer les listes déroulantes dépendantes
+      if (field === 'faction' || field === 'groupe') {
+        renderAdminEditor();
+      } else {
+        renderEditorPreview();
+      }
+    }
+
+    function renderEditorPreview() {
+      const preview = document.getElementById('editorPreview');
+      if (!preview || !adminDraft) return;
+      const imgUrl = adminDraft.photo || DEFAULT_PHOTO;
+      const encodedUrl = encodeURI(imgUrl);
+      const photo = `<img src="${escHtml(encodedUrl)}" alt="Preview" class="preview-image">`;
+      preview.innerHTML = `
+    <div class="preview-card-inner">
+      ${photo}
+      <div class="preview-info">
+        <div style="font-size: 1.1em; color: #fff; margin-bottom: 4px;"><strong>${escHtml(adminDraft.nom || '—')}</strong></div>
+        <div style="opacity: 0.8; margin-bottom: 8px;">${escHtml(adminDraft.role || '—')}</div>
+
+        <div style="display: grid; grid-template-columns: auto 1fr; gap: 8px; font-size: 0.9em; opacity: 0.7;">
+          <span>Faction:</span> <span style="color: #fff;">${escHtml(adminDraft.faction || '—')}</span>
+          <span>Groupe:</span> <span style="color: #fff;">${escHtml(adminDraft.groupe || '—')}</span>
+          ${adminDraft.equipe ? `<span>Équipe:</span> <span style="color: #6c8fff; font-weight: 600;">${escHtml(adminDraft.equipe)}</span>` : ''}
+          <span>Twitch:</span> <span style="color: #fff;">${escHtml(adminDraft.twitch || '—')}</span>
+        </div>
+      </div>
+    </div>`;
+    }
+
+    function saveAdminDraft() {
+      if (!adminDraft) return;
+      if (adminEditIndex === null) {
+        const meta = getGroupeMeta(adminDraft.groupe);
+        if (meta && meta.faction) adminDraft.faction = meta.faction;
+        characterList.push({ ...adminDraft });
+      } else {
+        const meta = getGroupeMeta(adminDraft.groupe);
+        if (meta && meta.faction) adminDraft.faction = meta.faction;
+        characterList[adminEditIndex] = { ...adminDraft };
+      }
+      saveAdminData();
+      adminDraft = null;
+      adminEditIndex = null;
+      updateCounts();
+      renderGrid();
+      renderAdminPanel();
+    }
+
+    function deleteAdminChar() {
+      if (adminEditIndex === null) return;
+      if (!confirm("On efface vraiment ce profil ? Il n'y aura pas de retour en arrière possible !")) return;
+      if (!confirm('Voulez-vous vraiment supprimer ce personnage ? cette action est irréversible.')) return;
+
+      characterList.splice(adminEditIndex, 1);
+      saveAdminData();
+      adminDraft = null;
+      adminEditIndex = null;
+      renderAdminPanel();
+      renderGrid();
+      updateCounts();
+    }
+
+    function cancelAdminDraft() {
+      adminDraft = null;
+      adminEditIndex = null;
+      renderAdminPanel();
+    }
+
+    function updateAdminField(idx, field, value) {
+      const char = characterList[idx];
+      if (!char) return;
+      char[field] = value;
+      saveAdminData();
+      updateCounts();
+      renderGrid();
+    }
+
+    /**
+     * sauvegarde les personnages.
+     * Le processus se fait en deux étapes :
+     * 1. Persistance dans le LocalStorage (cache du navigateur) pour une disponibilité immédiate.
+     * 2. Si l'accès au dossier a été autorisé (dirHandle), écriture directe dans le fichier Characters.json.
+     */
+    async function saveAdminData() {
+      // Étape 1 : Sauvegarde dans le cache local
+      localStorage.setItem('catalogueRP_chars', JSON.stringify(characterList));
+
+      // Étape 2 : Signalement du besoin de synchro
+      needsFullSync = true;
+      updateSyncUI();
+    }
+
+    function downloadCharactersJson() {
+      const blob = new Blob([JSON.stringify(characterList, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'Characters.json';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
+
+    function downloadGroupesJson() {
+      const blob = new Blob([JSON.stringify(hierarchyData, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'Groupes.json';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
+
+    function restoreOriginalData() {
+      localStorage.removeItem('catalogueRP_chars');
+      localStorage.removeItem('catalogueRP_groupes');
+      adminDraft = null;
+      adminEditIndex = null;
+      clearAdminGroupDraft();
+      loadData();
+    }
+
+    function handlePhotoDragOver(event) {
+      event.preventDefault();
+      event.currentTarget.classList.add('dragover');
+    }
+
+    function handlePhotoDragLeave(event) {
+      event.preventDefault();
+      event.currentTarget.classList.remove('dragover');
+    }
+
+    function handlePhotoDrop(event, idx) {
+      event.preventDefault();
+      event.currentTarget.classList.remove('dragover');
+      const file = event.dataTransfer.files && event.dataTransfer.files[0];
+      if (!file || !file.type.startsWith('image/')) return;
+      readImageFile(file).then(dataUrl => {
+        updateAdminField(idx, 'photo', dataUrl);
+        renderAdminPanel();
+      });
+    }
+
+    function handlePhotoFile(event, idx) {
+      const file = event.target.files && event.target.files[0];
+      if (!file || !file.type.startsWith('image/')) return;
+      readImageFile(file).then(dataUrl => {
+        updateAdminField(idx, 'photo', dataUrl);
+        renderAdminPanel();
+      });
+    }
+
+    function handlePhotoDropEditor(event) {
+      event.preventDefault();
+      event.currentTarget.classList.remove('dragover');
+      const file = event.dataTransfer.files && event.dataTransfer.files[0];
+      if (!file || !file.type.startsWith('image/')) return;
+      readImageFile(file).then(dataUrl => {
+        updateAdminDraft('photo', dataUrl);
+        const input = document.getElementById('editorPhoto');
+        if (input) input.value = dataUrl;
+        renderEditorPreview();
+      });
+    }
+
+    function handlePhotoFileEditor(event) {
+      const file = event.target.files && event.target.files[0];
+      if (!file || !file.type.startsWith('image/')) return;
+      readImageFile(file).then(dataUrl => {
+        updateAdminDraft('photo', dataUrl);
+        const input = document.getElementById('editorPhoto');
+        if (input) input.value = dataUrl;
+        renderEditorPreview();
+      });
+    }
+
+    function readImageFile(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+    }
+
+    /* ─────────────────────────────────────────────────────────
+       MODAL
+    ───────────────────────────────────────────────────────── */
+    function openModal(idx) {
+      const c = characterList[idx];
+      const meta = getGroupeMeta(c.groupe);
+      const live = isLive(c);
+
+      // Reset modal state
+      document.getElementById('mDescriptionArea').classList.add('hidden');
+      document.getElementById('mInfoGrid').classList.remove('hidden');
+      document.getElementById('mLabel1').textContent = 'Groupe';
+      document.getElementById('mLabel2').textContent = 'Faction';
+      document.getElementById('mLabel3').textContent = 'Statut';
+
+      // Photo / avatar
+      const photo = document.getElementById('mPhoto');
+      const imgUrl = c.photo || DEFAULT_PHOTO;
+      const encoded = encodeURI(imgUrl);
+      photo.style.background = `url('${encoded}') center/cover`;
+      photo.textContent = '';
+
+      document.getElementById('mName').textContent = c.nom;
+      document.getElementById('mRole').textContent = c.role || 'Aucun rôle';
+
+      let groupLabel = `${meta.icon} ${meta.label}`;
+      if (c.equipe) groupLabel += ` — ${c.equipe}`;
+      document.getElementById('mGroupe').textContent = groupLabel;
+
+      document.getElementById('mFaction').textContent =
+        c.faction === 'legal' ? '✓ Légal' : '✗ Illégal';
+
+      document.getElementById('mStatus').innerHTML = live
+        ? `<span style="color:var(--green)">● En live</span>`
+        : `<span style="color:var(--text3)">○ Hors ligne</span>`;
+
+      const tag = document.getElementById('mTag');
+      tag.className = `modal-tag ${c.faction === 'legal' ? 'tag-legal' : 'tag-illegal'}`;
+      tag.textContent = c.faction === 'legal' ? '◆ Légal' : '◈ Illégal';
+
+      // Actions
+      const twUrl = c.twitch ? `https://www.twitch.tv/${c.twitch}` : '#';
+      const noTw = !c.twitch ? 'style="pointer-events:none;opacity:0.4"' : '';
+      document.getElementById('mActions').innerHTML = `
+    ${live ? `<a href="${twUrl}" target="_blank" class="btn btn-green">📺 Voir le Live</a>` : ''}
+    <a href="${twUrl}" target="_blank" class="btn btn-ghost" ${noTw}>🔔 Profil Stream</a>
+  `;
+
+      document.getElementById('overlay').classList.remove('hidden');
+      document.body.style.overflow = 'hidden';
+    }
+
+    function openWikiModal(type, idx) {
+      const item = type === 'entreprise' ? COMPANIES[idx] : ASSOCIATIONS[idx];
+      if (!item) return;
+
+      // Photo / avatar
+      const photo = document.getElementById('mPhoto');
+      const imgUrl = item.logo || DEFAULT_PHOTO;
+      const encoded = encodeURI(imgUrl);
+      photo.style.background = `url('${encoded}') center/cover`;
+      photo.textContent = '';
+
+      document.getElementById('mName').textContent = item.nom;
+      document.getElementById('mRole').textContent = type === 'entreprise' ? '🏢 Entreprise' : '🤝 Association';
+
+      // Labels spécifiques
+      document.getElementById('mLabel1').textContent = 'Secteur';
+      document.getElementById('mLabel2').textContent = type === 'entreprise' ? 'Patron' : 'Responsable';
+      document.getElementById('mLabel3').textContent = 'Localisation';
+
+      document.getElementById('mGroupe').textContent = item.category || '—';
+      document.getElementById('mFaction').textContent = item.patron || '—';
+      document.getElementById('mStatus').textContent = item.localisation || '—';
+
+      const tag = document.getElementById('mTag');
+      tag.className = `modal-tag tag-legal`;
+      tag.textContent = item.category || 'Wiki';
+
+      // Description
+      document.getElementById('mDescription').textContent = item.description || 'Aucune description disponible.';
+      document.getElementById('mDescriptionArea').classList.remove('hidden');
+
+      // Actions
+      document.getElementById('mActions').innerHTML = `
+        <button class="btn btn-ghost" onclick="closeModal()">Fermer la fiche</button>
+      `;
+
+      document.getElementById('overlay').classList.remove('hidden');
+      document.body.style.overflow = 'hidden';
+    }
+
+    function closeModal() {
+      document.getElementById('overlay').classList.add('hidden');
+      document.body.style.overflow = '';
+    }
+
+    function overlayClick(e) {
+      if (e.target === document.getElementById('overlay')) closeModal();
+    }
+
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+
+
+
+
+
+    /* ─────────────────────────────────────────────────────────
+       COMPANIES
+    ───────────────────────────────────────────────────────── */
+    function renderAdminEntreprises() {
+      const entList = document.getElementById('entList');
+      const editor = document.getElementById('entEditor');
+      if (!entList) return;
+
+      if (entDraft) {
+        editor.classList.remove('hidden');
+        renderEntEditor();
+      } else {
+        editor.classList.add('hidden');
+      }
+
+      const rows = COMPANIES.map((e, idx) => `
+        <tr>
+          <td>${escHtml(e.nom)}</td>
+          <td><span class="stat-chip" style="font-size:0.7rem">${escHtml(e.category)}</span></td>
+          <td>${escHtml(e.patron || '—')}</td>
+          <td>${escHtml(e.localisation || '—')}</td>
+          <td>${e.logo ? '✔️' : '—'}</td>
+          <td style="text-align:right"><button class="btn btn-ghost" onclick="startEditEntreprise(${idx})">Modifier</button></td>
+        </tr>`).join('');
+
+      entList.innerHTML = `
+        <table class="admin-table">
+          <thead>
+            <tr>
+              <th>Nom</th>
+              <th>Catégorie</th>
+              <th>Patron</th>
+              <th>Localisation</th>
+              <th>Logo</th>
+              <th style="text-align:right">Action</th>
+            </tr>
+          </thead>
+          <tbody>${rows.length ? rows : '<tr><td colspan="6">Aucune entreprise enregistrée.</td></tr>'}</tbody>
+        </table>`;
+    }
+
+    function startCreateEntreprise() {
+      entEditIndex = null;
+      entDraft = {
+        nom: '',
+        category: '',
+        description: '',
+        patron: '',
+        localisation: '',
+        logo: ''
+      };
+      renderAdminEntreprises();
+    }
+
+    function startEditEntreprise(idx) {
+      entEditIndex = idx;
+      entDraft = { ...COMPANIES[idx] };
+      renderAdminEntreprises();
+    }
+
+    function renderEntEditor() {
+      document.getElementById('entNom').value = entDraft.nom || '';
+      document.getElementById('entCategory').value = entDraft.category || '';
+      document.getElementById('entDescription').value = entDraft.description || '';
+      document.getElementById('entPatron').value = entDraft.patron || '';
+      document.getElementById('entLocalisation').value = entDraft.localisation || '';
+      document.getElementById('entLogo').value = entDraft.logo || '';
+
+      const deleteBtn = document.getElementById('entDeleteBtn');
+      if (entEditIndex !== null) deleteBtn.classList.remove('hidden');
+      else deleteBtn.classList.add('hidden');
+
+      renderEntPreview();
+    }
+
+    function updateEntDraft(field, value) {
+      if (!entDraft) return;
+      entDraft[field] = value;
+      renderEntPreview();
+    }
+
+    function renderEntPreview() {
+      const preview = document.getElementById('entPreview');
+      if (!preview || !entDraft) return;
+      const imgUrl = entDraft.logo || DEFAULT_PHOTO;
+      preview.innerHTML = `
+        <div class="preview-card-inner">
+          <div class="preview-image-wrap">
+             <img src="${encodeURI(imgUrl)}" alt="Logo" class="preview-image">
+          </div>
+          <div class="preview-info">
+            <div style="font-size:1.1em; color:#fff; margin-bottom:4px;"><strong>${escHtml(entDraft.nom || 'Nom Entreprise')}</strong></div>
+            <div style="opacity:0.8; margin-bottom:8px; font-size:0.9em; color:var(--accent);">${escHtml(entDraft.category || 'Catégorie non définie')}</div>
+            <p style="font-size:0.85rem; opacity:0.7; margin-bottom:8px; line-height:1.4;">${escHtml(entDraft.description || 'Pas de description...')}</p>
+            <div style="display:grid; grid-template-columns:auto 1fr; gap:8px; font-size:0.85rem; opacity:0.7;">
+              <span>Patron:</span> <span style="color:#fff;">${escHtml(entDraft.patron || '—')}</span>
+              <span>Lieu:</span> <span style="color:#fff;">${escHtml(entDraft.localisation || '—')}</span>
+            </div>
+          </div>
+        </div>`;
+    }
+
+    function saveEntDraft() {
+      if (!entDraft.nom) return alert('Le nom de l\'entreprise est obligatoire.');
+      if (entEditIndex === null) {
+        COMPANIES.push({ ...entDraft });
+      } else {
+        COMPANIES[entEditIndex] = { ...entDraft };
+      }
+      saveEntData();
+      syncEntToGroup(entDraft);
+      entDraft = null;
+      renderAdminEntreprises();
+    }
+
+    function cancelEntDraft() {
+      entDraft = null;
+      renderAdminEntreprises();
+    }
+
+    function deleteEnt() {
+      if (entEditIndex === null) return;
+      if (!confirm('Supprimer définitivement cette entreprise ?')) return;
+      const key = 'ent_' + makeGroupKey(COMPANIES[entEditIndex].nom);
+      COMPANIES.splice(entEditIndex, 1);
+
+      // Suppression du groupe lié
+      if (hierarchyData['legal'] && hierarchyData['legal'].groupes && hierarchyData['legal'].groupes[key]) {
+        delete hierarchyData['legal'].groupes[key];
+        saveGroupData();
+      }
+
+      saveEntData();
+      entDraft = null;
+      renderAdminEntreprises();
+    }
+
+    async function saveEntData() {
+      localStorage.setItem('catalogueRP_ents', JSON.stringify(COMPANIES));
+      needsFullSync = true;
+      updateSyncUI();
+    }
+
+    function syncEntToGroup(ent, triggerSave = true) {
+      if (!ent || !ent.nom) return;
+      const key = 'ent_' + makeGroupKey(ent.nom);
+
+      if (!hierarchyData['legal']) hierarchyData['legal'] = { label: 'Légal', groupes: {} };
+      if (!hierarchyData['legal'].groupes) hierarchyData['legal'].groupes = {};
+
+      const existing = hierarchyData['legal'].groupes[key];
+      hierarchyData['legal'].groupes[key] = {
+        label: ent.nom,
+        icon: '🏢',
+        color: '#b07eff',
+        bg: 'rgba(176,126,255,0.12)',
+        roles: existing ? (existing.roles || []) : [],
+        equipes: existing ? (existing.equipes || {}) : {},
+        _isEnterprise: true
+      };
+
+      if (triggerSave) {
+        saveGroupData();
+      }
+    }
+
+    function syncAssocToGroup(assoc, triggerSave = true) {
+      if (!assoc || !assoc.nom) return;
+      const key = 'assoc_' + makeGroupKey(assoc.nom);
+
+      if (!hierarchyData['legal']) hierarchyData['legal'] = { label: 'Légal', groupes: {} };
+      if (!hierarchyData['legal'].groupes) hierarchyData['legal'].groupes = {};
+
+      const existing = hierarchyData['legal'].groupes[key];
+      hierarchyData['legal'].groupes[key] = {
+        label: assoc.nom,
+        icon: '🤝',
+        color: '#3ddc84',
+        bg: 'rgba(61,220,132,0.12)',
+        roles: existing ? (existing.roles || []) : [],
+        equipes: existing ? (existing.equipes || {}) : {},
+        _isAssociation: true
+      };
+
+      if (triggerSave) {
+        saveGroupData();
+      }
+    }
+
+    /* ─────────────────────────────────────────────────────────
+       ASSOCIATIONS
+    ───────────────────────────────────────────────────────── */
+    function renderAdminAssociations() {
+      const assocList = document.getElementById('assocList');
+      const editor = document.getElementById('assocEditor');
+      if (!assocList) return;
+
+      if (assocDraft) {
+        editor.classList.remove('hidden');
+        renderAssocEditor();
+      } else {
+        editor.classList.add('hidden');
+      }
+
+      const rows = ASSOCIATIONS.map((a, idx) => `
+        <tr>
+          <td>${escHtml(a.nom)}</td>
+          <td><span class="stat-chip" style="font-size:0.7rem">${escHtml(a.category)}</span></td>
+          <td>${escHtml(a.patron || '—')}</td>
+          <td>${escHtml(a.localisation || '—')}</td>
+          <td>${a.logo ? '✔️' : '—'}</td>
+          <td style="text-align:right"><button class="btn btn-ghost" onclick="startEditAssociation(${idx})">Modifier</button></td>
+        </tr>`).join('');
+
+      assocList.innerHTML = `
+        <table class="admin-table">
+          <thead>
+            <tr>
+              <th>Nom</th>
+              <th>Catégorie</th>
+              <th>Responsable</th>
+              <th>Localisation</th>
+              <th>Logo</th>
+              <th style="text-align:right">Action</th>
+            </tr>
+          </thead>
+          <tbody>${rows.length ? rows : '<tr><td colspan="6">Aucune association enregistrée.</td></tr>'}</tbody>
+        </table>`;
+    }
+
+    function startCreateAssociation() {
+      assocEditIndex = null;
+      assocDraft = {
+        nom: '',
+        category: '',
+        description: '',
+        patron: '',
+        localisation: '',
+        logo: ''
+      };
+      renderAdminAssociations();
+    }
+
+    function startEditAssociation(idx) {
+      assocEditIndex = idx;
+      assocDraft = { ...ASSOCIATIONS[idx] };
+      renderAdminAssociations();
+    }
+
+    function renderAssocEditor() {
+      document.getElementById('assocNom').value = assocDraft.nom || '';
+      document.getElementById('assocCategory').value = assocDraft.category || '';
+      document.getElementById('assocDescription').value = assocDraft.description || '';
+      document.getElementById('assocPatron').value = assocDraft.patron || '';
+      document.getElementById('assocLocalisation').value = assocDraft.localisation || '';
+      document.getElementById('assocLogo').value = assocDraft.logo || '';
+
+      const deleteBtn = document.getElementById('assocDeleteBtn');
+      if (assocEditIndex !== null) deleteBtn.classList.remove('hidden');
+      else deleteBtn.classList.add('hidden');
+
+      renderAssocPreview();
+    }
+
+    function updateAssocDraft(field, value) {
+      if (!assocDraft) return;
+      assocDraft[field] = value;
+      renderAssocPreview();
+    }
+
+    function renderAssocPreview() {
+      const preview = document.getElementById('assocPreview');
+      if (!preview || !assocDraft) return;
+      const imgUrl = assocDraft.logo || DEFAULT_PHOTO;
+      preview.innerHTML = `
+        <div class="preview-card-inner">
+          <div class="preview-image-wrap">
+             <img src="${encodeURI(imgUrl)}" alt="Logo" class="preview-image">
+          </div>
+          <div class="preview-info">
+            <div style="font-size:1.1em; color:#fff; margin-bottom:4px;"><strong>${escHtml(assocDraft.nom || 'Nom Association')}</strong></div>
+            <div style="opacity:0.8; margin-bottom:8px; font-size:0.9em; color:var(--success); font-weight:600;">${escHtml(assocDraft.category || 'Catégorie non définie')}</div>
+            <p style="font-size:0.85rem; opacity:0.7; margin-bottom:8px; line-height:1.4;">${escHtml(assocDraft.description || 'Pas de description...')}</p>
+            <div style="display:grid; grid-template-columns:auto 1fr; gap:8px; font-size:0.85rem; opacity:0.7;">
+              <span>Responsable:</span> <span style="color:#fff;">${escHtml(assocDraft.patron || '—')}</span>
+              <span>Siège:</span> <span style="color:#fff;">${escHtml(assocDraft.localisation || '—')}</span>
+            </div>
+          </div>
+        </div>`;
+    }
+
+    function saveAssocDraft() {
+      if (!assocDraft.nom) return alert('Le nom de l\'association est obligatoire.');
+      if (assocEditIndex === null) {
+        ASSOCIATIONS.push({ ...assocDraft });
+      } else {
+        ASSOCIATIONS[assocEditIndex] = { ...assocDraft };
+      }
+      saveAssocData();
+      syncAssocToGroup(assocDraft);
+      assocDraft = null;
+      renderAdminAssociations();
+    }
+
+    function cancelAssocDraft() {
+      assocDraft = null;
+      renderAdminAssociations();
+    }
+
+    function deleteAssoc() {
+      if (assocEditIndex === null) return;
+      if (!confirm('Supprimer définitivement cette association ?')) return;
+      const key = 'assoc_' + makeGroupKey(ASSOCIATIONS[assocEditIndex].nom);
+      ASSOCIATIONS.splice(assocEditIndex, 1);
+
+      // Suppression du groupe lié
+      if (hierarchyData['legal'] && hierarchyData['legal'].groupes && hierarchyData['legal'].groupes[key]) {
+        delete hierarchyData['legal'].groupes[key];
+        saveGroupData();
+      }
+
+      saveAssocData();
+      assocDraft = null;
+      renderAdminAssociations();
+    }
+
+    async function saveAssocData() {
+      localStorage.setItem('catalogueRP_assocs', JSON.stringify(ASSOCIATIONS));
+      needsFullSync = true;
+      updateSyncUI();
+    }
+
+    function renderAssociations() {
+      const container = document.getElementById('associationsContent');
+      if (!container) return;
+
+      const cards = ASSOCIATIONS.map((a, idx) => `
+        <div class="char-card clickable" onclick="openWikiModal('association', ${idx})">
+          <div class="char-avatar has-photo" style="background-image:url('${encodeURI(a.logo || DEFAULT_PHOTO)}')">
+            <span class="char-badge" style="background:rgba(66,210,143,0.18);color:#92ffcf">
+              🤝 ${escHtml(a.category || 'Association')}
+            </span>
+          </div>
+          <div class="char-body">
+            <div class="char-name">${escHtml(a.nom)}</div>
+            <div class="char-role">${escHtml(a.patron || '—')} (Responsable)</div>
+            <div class="char-team-name">${escHtml(a.localisation || '—')}</div>
+            <p style="font-size:0.8rem; margin-top:8px; opacity:0.6; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;">
+              ${escHtml(a.description || '')}
+            </p>
+          </div>
+        </div>`).join('');
+
+      container.className = 'welcome-content';
+      container.innerHTML = `
+        <div class="char-grid" style="grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));">
+          ${cards.length ? cards : '<p style="text-align:center; padding:2rem; opacity:0.5; grid-column: 1/-1;">Aucune association enregistrée pour le moment.</p>'}
+        </div>
+      `;
+    }
+
+    function renderEntreprises() {
+      const container = document.getElementById('entreprisesContent');
+      if (!container) return;
+
+      const cards = COMPANIES.map((e, idx) => `
+        <div class="char-card clickable" onclick="openWikiModal('entreprise', ${idx})">
+          <div class="char-avatar has-photo" style="background-image:url('${encodeURI(e.logo || DEFAULT_PHOTO)}')">
+            <span class="char-badge" style="background:rgba(255,255,255,0.1);color:#fff">
+              🏢 ${escHtml(e.category || 'Entreprise')}
+            </span>
+          </div>
+          <div class="char-body">
+            <div class="char-name">${escHtml(e.nom)}</div>
+            <div class="char-role">${escHtml(e.patron || '—')} (Patron)</div>
+            <div class="char-team-name">${escHtml(e.localisation || '—')}</div>
+            <p style="font-size:0.8rem; margin-top:8px; opacity:0.6; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;">
+              ${escHtml(e.description || '')}
+            </p>
+          </div>
+        </div>`).join('');
+
+      container.className = 'welcome-content';
+      container.innerHTML = `
+        <div class="char-grid" style="grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));">
+          ${cards.length ? cards : '<p style="text-align:center; padding:2rem; opacity:0.5; grid-column: 1/-1;">Aucune entreprise enregistrée pour le moment.</p>'}
+        </div>
+      `;
+    }
+
+    /* ─────────────────────────────────────────────────────────
+       UTILITAIRES
+    ───────────────────────────────────────────────────────── */
+    function getGroupeMeta(groupeKey) {
+      if (!groupeKey) return { label: 'Inconnu', icon: '❓', color: '#9499b8', bg: 'rgba(148,153,184,0.1)', faction: 'legal' };
+
+      for (const [factionKey, faction] of Object.entries(hierarchyData)) {
+        if (factionKey.startsWith('_')) continue;
+
+        // Groupes directs (ex: legal)
+        if (faction.groupes && faction.groupes[groupeKey]) {
+          return { ...faction.groupes[groupeKey], faction: factionKey };
+        }
+
+        // Groupes dans des hiérarchies (ex: illegal)
+        if (faction.hierarchies) {
+          for (const h of Object.values(faction.hierarchies)) {
+            if (h.groupes && h.groupes[groupeKey]) {
+              return { ...h.groupes[groupeKey], faction: factionKey };
+            }
+          }
+        }
+      }
+      return { label: groupeKey, icon: '○', color: '#9499b8', bg: 'rgba(148,153,184,0.1)', faction: 'legal' };
+    }
+
+    const EMOJIS = ['🧑', '👨', '👩', '🕵️', '👮', '🩺', '🎭', '👑', '🤵', '👷', '🦺', '🧤'];
+    function getEmoji(seed) {
+      let h = 0;
+      for (let c of seed) h = (h * 31 + c.charCodeAt(0)) & 0xffff;
+      return EMOJIS[h % EMOJIS.length];
+    }
+
+    function escHtml(str) {
+      if (!str) return '';
+      return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    function renderTV() {
+      const tvContent = document.getElementById('tvContent');
+      if (!tvContent) return;
+
+      // Filtrer les personnages qui ont un Twitch et qui sont détectés en LIVE
+      const liveChars = characterList.filter(c => c.twitch && isLive(c));
+
+      if (liveChars.length === 0) {
+        tvContent.innerHTML = `
+          <div style="text-align:center; padding: 5rem 2rem; opacity:0.5;">
+            <div style="font-size:4rem; margin-bottom:1.5rem;">📡</div>
+            <h2 style="font-family:'Rajdhani',sans-serif; color:var(--primary-purple); margin-bottom:0.8rem;">Aucun live n'est détecté pour le moment...</h2>
+            <p>Reviens plus tard pour voir tes streameurs préférés en action !</p>
+          </div>
+        `;
+        return;
+      }
+
+      let html = `<div class="tv-grid">`;
+      liveChars.forEach(c => {
+        const photoUrl = encodeURI(c.photo || DEFAULT_PHOTO);
+        // On utilise l'embed Twitch interactif
+        html += `
+          <div class="tv-card">
+            <div class="tv-player">
+              <iframe
+                src="https://player.twitch.tv/?channel=${encodeURIComponent(c.twitch)}&parent=${window.location.hostname || 'localhost'}&muted=true"
+                height="100%"
+                width="100%"
+                allowfullscreen>
+              </iframe>
+            </div>
+            <div class="tv-info">
+              <div class="tv-avatar" style="background-image: url('${photoUrl}')"></div>
+              <div style="flex:1">
+                <div class="tv-name">${escHtml(c.nom)}</div>
+                <div class="tv-status">
+                   <span class="logo-flash" style="font-size:1.1rem; filter:none; margin-right:6px;">⚡</span>
+                   LIVE — ${escHtml(c.twitch)}
+                </div>
+              </div>
+              <a href="https://twitch.tv/${c.twitch}" target="_blank" class="sb-icon" style="background:rgba(145,71,255,0.1); color:#9147ff; text-decoration:none;" title="Voir sur Twitch">
+                🚀
+              </a>
+            </div>
+          </div>
+        `;
+      });
+      html += `</div>`;
+      tvContent.innerHTML = html;
+    }
+
+    function showError(msg) {
+      // Petite alerte simple mais efficace.
+      alert("Oups ! " + msg);
+      const banner = document.getElementById('configAlert');
+      if (!banner) return;
+      banner.classList.remove('hidden');
+      banner.innerHTML = `<span style="font-size:18px;flex-shrink:0">⚠️</span><div><strong style="color:#ff4f6e">Erreur</strong><br>${msg}</div>`;
+    }
+
+    /* ─────────────────────────────────────────────────────────
+       DÉMARRAGE
+    ───────────────────────────────────────────────────────── */
+    loadData();
+  </script>
+</body>
+
+</html>
