@@ -9,11 +9,19 @@ const serverless = require('serverless-http');
 
 const app = express();
 
-// Configuration des sessions via Cookies (nécessaire pour le serverless/Netlify)
+// Vérification de sécurité pour les variables d'environnement
+const clientID = process.env.DISCORD_CLIENT_ID;
+const clientSecret = process.env.DISCORD_CLIENT_SECRET;
+
+if (!clientID || !clientSecret) {
+    console.error("❌ ERREUR CRITIQUE : DISCORD_CLIENT_ID ou DISCORD_CLIENT_SECRET est manquant sur Netlify !");
+}
+
+// Configuration des sessions via Cookies
 app.use(cookieSession({
     name: 'session_fbwl',
     keys: ['secret_cookie_anti_streamhack'],
-    maxAge: 24 * 60 * 60 * 1000 // 24 heures
+    maxAge: 24 * 60 * 60 * 1000
 }));
 
 app.use(passport.initialize());
@@ -23,14 +31,16 @@ app.use(passport.session());
 passport.serializeUser((user, done) => done(null, user));
 passport.deserializeUser((obj, done) => done(null, obj));
 
-passport.use(new DiscordStrategy({
-    clientID: process.env.DISCORD_CLIENT_ID,
-    clientSecret: process.env.DISCORD_CLIENT_SECRET,
-    callbackURL: '/auth/discord/callback',
-    scope: ['identify', 'guilds']
-}, (accessToken, refreshToken, profile, done) => {
-    return done(null, profile);
-}));
+if (clientID && clientSecret) {
+    passport.use(new DiscordStrategy({
+        clientID: clientID,
+        clientSecret: clientSecret,
+        callbackURL: '/auth/discord/callback',
+        scope: ['identify', 'guilds']
+    }, (accessToken, refreshToken, profile, done) => {
+        return done(null, profile);
+    }));
+}
 
 // --- ROUTES ---
 
