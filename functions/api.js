@@ -67,6 +67,23 @@ app.get('/auth/discord/callback', (req, res, next) => {
     passport.authenticate('discord', { 
         callbackURL: 'https://cataloguefbwl.netlify.app/auth/discord/callback',
         failureRedirect: '/' 
+    }, (err, user, info) => {
+        if (err) {
+            console.error("❌ ERREUR PASSPORT (Retour Discord) :", err);
+            return res.redirect('/');
+        }
+        if (!user) {
+            console.error("❌ ÉCHEC AUTHENTIFICATION (Utilisateur non trouvé) :", info);
+            return res.redirect('/');
+        }
+        req.login(user, (loginErr) => {
+            if (loginErr) {
+                console.error("❌ ERREUR LOGIN (Session) :", loginErr);
+                return res.redirect('/');
+            }
+            console.log("✅ Connexion Passport réussie !");
+            next(); // On passe au check des rôles
+        });
     })(req, res, next);
 }, async (req, res) => {
     try {
