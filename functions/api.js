@@ -5,6 +5,7 @@ const passport = require('passport');
 const DiscordStrategy = require('passport-discord').Strategy;
 const axios = require('axios');
 const path = require('path');
+const fs = require('fs');
 const serverless = require('serverless-http');
 
 const app = express();
@@ -129,25 +130,50 @@ app.get('/auth/discord/callback', (req, res, next) => {
 
         // --- SI AUTORISÉ : ON ENVOIE DIRECTEMENT LE CATALOGUE ---
         console.log("🏁 Autorisé : Envoi direct du catalogue !");
-        const filePath = path.join(__dirname, '..', 'Catalogue_RP', 'Catalogue.html');
         
-        res.sendFile(filePath, (err) => {
+        const cataloguePath = path.join(__dirname, '..', 'Catalogue_RP', 'Catalogue.html');
+        
+        fs.readFile(cataloguePath, 'utf-8', (err, data) => {
             if (err) {
-                console.error("❌ Erreur fichier:", err.message);
-                res.status(500).send("Erreur de chargement du catalogue");
+                console.error("❌ Erreur lecture catalogue:", err.message);
+                if (!res.headersSent) {
+                    res.status(500).send("Erreur de chargement du catalogue");
+                }
+                return;
             }
+            res.setHeader('Content-Type', 'text/html; charset=utf-8');
+            res.send(data);
         });
 
     } catch (error) {
         console.error("❌ Erreur check Discord:", error.response?.data || error.message);
         // En cas d'erreur de check, par sécurité on envoie quand même sur le catalogue
-        const filePath = path.join(__dirname, '..', 'Catalogue_RP', 'Catalogue.html');
-        res.sendFile(filePath);
+        if (!res.headersSent) {
+            const cataloguePath = path.join(__dirname, '..', 'Catalogue_RP', 'Catalogue.html');
+            fs.readFile(cataloguePath, 'utf-8', (err, data) => {
+                if (err) {
+                    console.error("❌ Erreur lecture catalogue (catch):", err.message);
+                    res.status(500).send("Erreur de chargement du catalogue");
+                    return;
+                }
+                res.setHeader('Content-Type', 'text/html; charset=utf-8');
+                res.send(data);
+            });
+        }
     }
 });
 
 app.get('/blocked', (req, res) => {
-    res.sendFile(path.join(__dirname, '..', 'blocked.html'));
+    const blockedPath = path.join(__dirname, '..', 'blocked.html');
+    fs.readFile(blockedPath, 'utf-8', (err, data) => {
+        if (err) {
+            console.error("❌ Erreur lecture blocked.html:", err.message);
+            res.status(500).send("Page non disponible");
+            return;
+        }
+        res.setHeader('Content-Type', 'text/html; charset=utf-8');
+        res.send(data);
+    });
 });
 
 const isAuthenticated = (req, res, next) => {
@@ -156,7 +182,16 @@ const isAuthenticated = (req, res, next) => {
 };
 
 app.get('/streams', isAuthenticated, (req, res) => {
-    res.sendFile(path.join(__dirname, '..', 'Catalogue_RP', 'Catalogue.html'));
+    const cataloguePath = path.join(__dirname, '..', 'Catalogue_RP', 'Catalogue.html');
+    fs.readFile(cataloguePath, 'utf-8', (err, data) => {
+        if (err) {
+            console.error("❌ Erreur lecture catalogue:", err.message);
+            res.status(500).send("Erreur de chargement du catalogue");
+            return;
+        }
+        res.setHeader('Content-Type', 'text/html; charset=utf-8');
+        res.send(data);
+    });
 });
 
 // Export pour Netlify
