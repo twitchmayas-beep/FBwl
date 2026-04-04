@@ -166,12 +166,23 @@ app.get('/blocked', (req, res) => {
 });
 
 const isAuthenticated = (req, res, next) => {
-    if (req.isAuthenticated()) return next();
+    if (req.isAuthenticated()) {
+        console.log("🔓 Utilisateur authentifié : " + req.user.username);
+        return next();
+    }
+    console.warn("🔒 Accès refusé : Utilisateur non authentifié, redirection vers /");
     res.redirect('/');
 };
 
 app.get('/streams', isAuthenticated, (req, res) => {
-    res.sendFile(path.join(__dirname, '..', 'Catalogue_RP', 'Catalogue.html'));
+    const filePath = path.join(__dirname, '..', 'Catalogue_RP', 'Catalogue.html');
+    console.log("📂 Tentative d'envoi du catalogue : " + filePath);
+    res.sendFile(filePath, (err) => {
+        if (err) {
+            console.error("❌ Erreur envoi fichier :", err.message);
+            res.status(500).send("Erreur de chargement du catalogue");
+        }
+    });
 });
 
 // Export pour Netlify
