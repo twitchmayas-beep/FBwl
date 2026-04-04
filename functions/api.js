@@ -46,9 +46,10 @@ if (clientID && clientSecret) {
     passport.use(new DiscordStrategy({
         clientID: clientID,
         clientSecret: clientSecret,
-        callbackURL: '/auth/discord/callback',
+        callbackURL: 'https://cataloguefbwl.netlify.app/auth/discord/callback',
         scope: ['identify', 'guilds']
     }, (accessToken, refreshToken, profile, done) => {
+        profile.accessToken = accessToken; // On garde le token pour interroger l'API plus tard
         return done(null, profile);
     }));
 }
