@@ -128,7 +128,7 @@ const isAuthenticated = (req, res, next) => {
 };
 
 app.get('/streams', isAuthenticated, (req, res) => {
-    res.sendFile(path.join(__dirname, '..', 'Catalogue RP', 'Catalogue.html'));
+    res.sendFile(path.join(__dirname, '..', 'Catalogue_RP', 'Catalogue.html'));
 });
 
 // Export pour Netlify

@@ -5,7 +5,7 @@
 
 [functions]
   node_bundler = "esbuild"
-  included_files = ["blocked.html", "Catalogue RP/**"]
+  included_files = ["blocked.html", "Catalogue_RP/**"]
 
 [[redirects]]
   from = "/auth/*"
