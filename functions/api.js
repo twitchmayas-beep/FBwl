@@ -9,14 +9,14 @@ const serverless = require('serverless-http');
 
 const app = express();
 
-// Configuration des sessions via Cookies (Adapté pour Netlify/HTTPS)
+// Configuration des sessions via Cookies (Version ultra-compatible Netlify)
 app.use(cookieSession({
-    name: 'session_fbwl',
-    keys: ['secret_cookie_anti_streamhack'],
+    name: 'fbwl_auth',
+    secret: 'anti_streamhack_flashback_tv_ultra_secret_key_2024', // Un secret long et stable
     maxAge: 24 * 60 * 60 * 1000,
-    secure: true, // Indispensable sur Netlify (HTTPS)
-    sameSite: 'lax',
-    httpOnly: true
+    path: '/',
+    secure: true,
+    sameSite: 'lax'
 }));
 
 // Patch pour compatibilité cookie-session et Passport (évite l'erreur regenerate)
@@ -92,27 +92,23 @@ app.get('/auth/discord/callback', (req, res, next) => {
     try {
         console.log(`🔍 Analyse pour : ${req.user.username}`);
 
+        // ... variables ... (guildId, botToken, etc.)
         const guildId = process.env.DISCORD_GUILD_ID;
         const botToken = process.env.DISCORD_BOT_TOKEN;
         const userId = req.user.id;
 
-        // Récupérer les informations du membre dans la guilde
         const response = await axios.get(`https://discord.com/api/v10/guilds/${guildId}/members/${userId}`, {
             headers: { Authorization: `Bot ${botToken}` }
         });
 
         const member = response.data;
-        const citoyenRoleId = process.env.DISCORD_ROLE_ID_CITOYEN;
-        const staffRoleId = process.env.DISCORD_ROLE_ID_STAFF;
-        const targetVoiceId = process.env.DISCORD_VOICE_CHANNEL_ID;
-
         const roles = member.roles || [];
-        const isCitoyen = roles.includes(citoyenRoleId);
-        const isStaff = roles.includes(staffRoleId);
+        const isCitoyen = roles.includes(process.env.DISCORD_ROLE_ID_CITOYEN);
+        const isStaff = roles.includes(process.env.DISCORD_ROLE_ID_STAFF);
+        const targetVoiceId = process.env.DISCORD_VOICE_CHANNEL_ID;
         
         let isInTargetVoice = false;
         try {
-            // Vérifier l'état vocal de l'utilisateur
             const voiceResponse = await axios.get(`https://discord.com/api/v10/guilds/${guildId}/voice-states/${userId}`, {
                 headers: { Authorization: `Bot ${botToken}` }
             }).catch(() => null);
@@ -120,47 +116,33 @@ app.get('/auth/discord/callback', (req, res, next) => {
             if (voiceResponse && voiceResponse.data) {
                 isInTargetVoice = voiceResponse.data.channel_id === targetVoiceId;
             }
-        } catch(e) {
-            console.log("⚠️ Impossible de vérifier l'état vocal (normal si déconnecté).");
-        }
+        } catch(e) {}
 
-        // Logique Anti-Streamhack
         const shouldBlock = isCitoyen && isInTargetVoice && !isStaff;
         
         console.log(`📊 VERDICT : isCitoyen=${isCitoyen}, isInTargetVoice=${isInTargetVoice}, isStaff=${isStaff}`);
-        console.log(`🛡️ Blocage nécessaire : ${shouldBlock}`);
-
-        // Webhook (Log)
-        const webhookURL = process.env.DISCORD_WEBHOOK_URL;
-        if (webhookURL) {
-            console.log("📨 Envoi du Webhook...");
-            const statusTxt = shouldBlock ? "❌ ACCÈS REFUSÉ" : "✅ ACCÈS AUTORISÉ";
-            const embedColor = shouldBlock ? 15548997 : 5763719;
-
-            await axios.post(webhookURL, {
-                embeds: [{
-                    title: "🛡️ Gardien Anti-Streamhack (Netlify)",
-                    color: embedColor,
-                    fields: [
-                        { name: "Utilisateur", value: `<@${userId}>`, inline: true },
-                        { name: "Verdict", value: `**${statusTxt}**`, inline: true }
-                    ],
-                    timestamp: new Date()
-                }]
-            }).catch((err) => { console.error("❌ Erreur Webhook:", err.message); });
-        }
 
         if (shouldBlock) {
-            console.log("🚫 Redirection vers /blocked");
-            res.redirect('/blocked');
-        } else {
-            console.log("🏁 Redirection vers /streams");
-            res.redirect('/streams');
+            console.log("🚫 Refusé : Redirection vers /blocked");
+            return res.redirect('/blocked');
         }
 
+        // --- SI AUTORISÉ : ON ENVOIE DIRECTEMENT LE CATALOGUE ---
+        console.log("🏁 Autorisé : Envoi direct du catalogue !");
+        const filePath = path.join(__dirname, '..', 'Catalogue_RP', 'Catalogue.html');
+        
+        res.sendFile(filePath, (err) => {
+            if (err) {
+                console.error("❌ Erreur fichier:", err.message);
+                res.status(500).send("Erreur de chargement du catalogue");
+            }
+        });
+
     } catch (error) {
-        console.error("❌ Erreur lors du check Discord:", error.response?.data || error.message);
-        res.redirect('/streams'); // Par défaut on laisse passer si l'API Discord est injoignable (pour éviter de bloquer tout le monde)
+        console.error("❌ Erreur check Discord:", error.response?.data || error.message);
+        // En cas d'erreur de check, par sécurité on envoie quand même sur le catalogue
+        const filePath = path.join(__dirname, '..', 'Catalogue_RP', 'Catalogue.html');
+        res.sendFile(filePath);
     }
 });
 
@@ -169,23 +151,12 @@ app.get('/blocked', (req, res) => {
 });
 
 const isAuthenticated = (req, res, next) => {
-    if (req.isAuthenticated()) {
-        console.log("🔓 Utilisateur authentifié : " + req.user.username);
-        return next();
-    }
-    console.warn("🔒 Accès refusé : Utilisateur non authentifié, redirection vers /");
+    if (req.isAuthenticated()) return next();
     res.redirect('/');
 };
 
 app.get('/streams', isAuthenticated, (req, res) => {
-    const filePath = path.join(__dirname, '..', 'Catalogue_RP', 'Catalogue.html');
-    console.log("📂 Tentative d'envoi du catalogue : " + filePath);
-    res.sendFile(filePath, (err) => {
-        if (err) {
-            console.error("❌ Erreur envoi fichier :", err.message);
-            res.status(500).send("Erreur de chargement du catalogue");
-        }
-    });
+    res.sendFile(path.join(__dirname, '..', 'Catalogue_RP', 'Catalogue.html'));
 });
 
 // Export pour Netlify
