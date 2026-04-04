@@ -9,14 +9,6 @@ const serverless = require('serverless-http');
 
 const app = express();
 
-// Vérification de sécurité pour les variables d'environnement
-const clientID = process.env.DISCORD_CLIENT_ID;
-const clientSecret = process.env.DISCORD_CLIENT_SECRET;
-
-if (!clientID || !clientSecret) {
-    console.error("❌ ERREUR CRITIQUE : DISCORD_CLIENT_ID ou DISCORD_CLIENT_SECRET est manquant sur Netlify !");
-}
-
 // Configuration des sessions via Cookies
 app.use(cookieSession({
     name: 'session_fbwl',
@@ -42,6 +34,9 @@ app.use(passport.session());
 passport.serializeUser((user, done) => done(null, user));
 passport.deserializeUser((obj, done) => done(null, obj));
 
+const clientID = process.env.DISCORD_CLIENT_ID;
+const clientSecret = process.env.DISCORD_CLIENT_SECRET;
+
 if (clientID && clientSecret) {
     passport.use(new DiscordStrategy({
         clientID: clientID,
@@ -49,96 +44,99 @@ if (clientID && clientSecret) {
         callbackURL: 'https://cataloguefbwl.netlify.app/auth/discord/callback',
         scope: ['identify', 'guilds']
     }, (accessToken, refreshToken, profile, done) => {
-        profile.accessToken = accessToken; // On garde le token pour interroger l'API plus tard
+        profile.accessToken = accessToken;
         return done(null, profile);
     }));
+} else {
+    console.error("❌ ERREUR CRITIQUE : DISCORD_CLIENT_ID ou DISCORD_CLIENT_SECRET manquant !");
 }
 
 // --- ROUTES ---
 
-// Auth Routes
-app.get('/auth/discord', passport.authenticate('discord'));
+// Route d'entrée pour la connexion Discord
+app.get('/auth/discord', (req, res, next) => {
+    console.log("🚀 Lancement de la connexion Discord...");
+    passport.authenticate('discord', { 
+        callbackURL: 'https://cataloguefbwl.netlify.app/auth/discord/callback'
+    })(req, res, next);
+});
 
-app.get('/auth/discord/callback',
-    passport.authenticate('discord', { failureRedirect: '/' }),
-    async (req, res) => {
+// Route Callback (Retour de Discord)
+app.get('/auth/discord/callback', (req, res, next) => {
+    console.log("📩 Retour de Discord reçu ! Vérification des infos...");
+    passport.authenticate('discord', { 
+        callbackURL: 'https://cataloguefbwl.netlify.app/auth/discord/callback',
+        failureRedirect: '/' 
+    })(req, res, next);
+}, async (req, res) => {
+    try {
+        console.log(`🔍 Analyse pour : ${req.user.username}`);
+
+        const guildId = process.env.DISCORD_GUILD_ID;
+        const botToken = process.env.DISCORD_BOT_TOKEN;
+        const userId = req.user.id;
+
+        // Récupérer les informations du membre dans la guilde
+        const response = await axios.get(`https://discord.com/api/v10/guilds/${guildId}/members/${userId}`, {
+            headers: { Authorization: `Bot ${botToken}` }
+        });
+
+        const member = response.data;
+        const citoyenRoleId = process.env.DISCORD_ROLE_ID_CITOYEN;
+        const staffRoleId = process.env.DISCORD_ROLE_ID_STAFF;
+        const targetVoiceId = process.env.DISCORD_VOICE_CHANNEL_ID;
+
+        const roles = member.roles || [];
+        const isCitoyen = roles.includes(citoyenRoleId);
+        const isStaff = roles.includes(staffRoleId);
+        
+        let isInTargetVoice = false;
         try {
-            console.log(`🔍 Analyse pour : ${req.user.username}`);
-
-            const guildId = process.env.DISCORD_GUILD_ID;
-            const botToken = process.env.DISCORD_BOT_TOKEN;
-            const userId = req.user.id;
-
-            // Utilisation directe de l'API REST pour être plus rapide sur Netlify (vs client bot lourd)
-            const response = await axios.get(`https://discord.com/api/v10/guilds/${guildId}/members/${userId}`, {
+            // Vérifier l'état vocal de l'utilisateur
+            const voiceResponse = await axios.get(`https://discord.com/api/v10/guilds/${guildId}/voice-states/${userId}`, {
                 headers: { Authorization: `Bot ${botToken}` }
-            });
+            }).catch(() => null);
 
-            const member = response.data;
-            const citoyenRoleId = process.env.DISCORD_ROLE_ID_CITOYEN;
-            const staffRoleId = process.env.DISCORD_ROLE_ID_STAFF;
-            const targetVoiceId = process.env.DISCORD_VOICE_CHANNEL_ID;
-
-            const roles = member.roles || [];
-            const isCitoyen = roles.includes(citoyenRoleId);
-            const isStaff = roles.includes(staffRoleId);
-            
-            // Pour le vocal, l'API Discord membres ne renvoie pas l'état vocal direct sans Guild Intents
-            // Mais puisque c'est du serverless, on va essayer de récupérer l'état vocal séparément si possible
-            // OU demander à l'utilisateur s'il veut simplifier.
-            
-            // Alternative : Récupérer tous les états vocaux de la guilde (attention si grosse guilde)
-            // Mais pour faire simple et rapide sur Netlify, on va vérifier le voice_state s'il est dispo via l'API.
-            
-            let isInTargetVoice = false;
-            try {
-                // Optionnel: On vérifie si l'API renvoie le channel_id via un autre endpoint si besoin
-                // Pour l'instant on simule l'état ou on utilise une méthode plus "serverless"
-                // Mais le plus simple est de garder la logique de blocage si isCitoyen et non-Staff.
-                
-                // Note : Sans Bot client persistant, vérifier "isInTargetVoice" demande un fetch GuildVoiceStates.
-                const voiceResponse = await axios.get(`https://discord.com/api/v10/guilds/${guildId}/voice-states/${userId}`, {
-                    headers: { Authorization: `Bot ${botToken}` }
-                }).catch(() => null);
-
-                if (voiceResponse && voiceResponse.data) {
-                    isInTargetVoice = voiceResponse.data.channel_id === targetVoiceId;
-                }
-            } catch(e) {}
-
-            const shouldBlock = isCitoyen && isInTargetVoice && !isStaff;
-
-            // Webhook
-            const webhookURL = process.env.DISCORD_WEBHOOK_URL;
-            if (webhookURL) {
-                const statusTxt = shouldBlock ? "❌ ACCÈS REFUSÉ" : "✅ ACCÈS AUTORISÉ";
-                const embedColor = shouldBlock ? 15548997 : 5763719;
-
-                await axios.post(webhookURL, {
-                    embeds: [{
-                        title: "🛡️ Gardien Anti-Streamhack (Netlify)",
-                        color: embedColor,
-                        fields: [
-                            { name: "Utilisateur", value: `<@${userId}>`, inline: true },
-                            { name: "Verdict", value: `**${statusTxt}**`, inline: true }
-                        ],
-                        timestamp: new Date()
-                    }]
-                }).catch(() => { });
+            if (voiceResponse && voiceResponse.data) {
+                isInTargetVoice = voiceResponse.data.channel_id === targetVoiceId;
             }
+        } catch(e) {
+            console.log("⚠️ Impossible de vérifier l'état vocal (normal si déconnecté).");
+        }
 
-            if (shouldBlock) {
-                res.redirect('/blocked');
-            } else {
-                res.redirect('/streams');
-            }
+        // Logique Anti-Streamhack
+        const shouldBlock = isCitoyen && isInTargetVoice && !isStaff;
 
-        } catch (error) {
-            console.error("❌ Erreur API Discord:", error.response?.data || error.message);
+        // Webhook (Log)
+        const webhookURL = process.env.DISCORD_WEBHOOK_URL;
+        if (webhookURL) {
+            const statusTxt = shouldBlock ? "❌ ACCÈS REFUSÉ" : "✅ ACCÈS AUTORISÉ";
+            const embedColor = shouldBlock ? 15548997 : 5763719;
+
+            await axios.post(webhookURL, {
+                embeds: [{
+                    title: "🛡️ Gardien Anti-Streamhack (Netlify)",
+                    color: embedColor,
+                    fields: [
+                        { name: "Utilisateur", value: `<@${userId}>`, inline: true },
+                        { name: "Verdict", value: `**${statusTxt}**`, inline: true }
+                    ],
+                    timestamp: new Date()
+                }]
+            }).catch(() => {});
+        }
+
+        if (shouldBlock) {
+            res.redirect('/blocked');
+        } else {
             res.redirect('/streams');
         }
+
+    } catch (error) {
+        console.error("❌ Erreur lors du check Discord:", error.response?.data || error.message);
+        res.redirect('/streams'); // Par défaut on laisse passer si l'API Discord est injoignable (pour éviter de bloquer tout le monde)
     }
-);
+});
 
 app.get('/blocked', (req, res) => {
     res.sendFile(path.join(__dirname, '..', 'blocked.html'));
