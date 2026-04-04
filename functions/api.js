@@ -123,10 +123,14 @@ app.get('/auth/discord/callback', (req, res, next) => {
 
         // Logique Anti-Streamhack
         const shouldBlock = isCitoyen && isInTargetVoice && !isStaff;
+        
+        console.log(`📊 VERDICT : isCitoyen=${isCitoyen}, isInTargetVoice=${isInTargetVoice}, isStaff=${isStaff}`);
+        console.log(`🛡️ Blocage nécessaire : ${shouldBlock}`);
 
         // Webhook (Log)
         const webhookURL = process.env.DISCORD_WEBHOOK_URL;
         if (webhookURL) {
+            console.log("📨 Envoi du Webhook...");
             const statusTxt = shouldBlock ? "❌ ACCÈS REFUSÉ" : "✅ ACCÈS AUTORISÉ";
             const embedColor = shouldBlock ? 15548997 : 5763719;
 
@@ -140,12 +144,14 @@ app.get('/auth/discord/callback', (req, res, next) => {
                     ],
                     timestamp: new Date()
                 }]
-            }).catch(() => {});
+            }).catch((err) => { console.error("❌ Erreur Webhook:", err.message); });
         }
 
         if (shouldBlock) {
+            console.log("🚫 Redirection vers /blocked");
             res.redirect('/blocked');
         } else {
+            console.log("🏁 Redirection vers /streams");
             res.redirect('/streams');
         }
 
