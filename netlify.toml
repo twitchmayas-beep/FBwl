@@ -5,19 +5,15 @@
 
 [functions]
   node_bundler = "esbuild"
-  included_files = ["blocked.html", "Catalogue_RP/**"]
 
 [[redirects]]
   from = "/auth/*"
   to = "/.netlify/functions/api"
   status = 200
+  force = true
 
 [[redirects]]
-  from = "/blocked"
+  from = "/streams*"
   to = "/.netlify/functions/api"
   status = 200
-
-[[redirects]]
-  from = "/streams"
-  to = "/.netlify/functions/api"
-  status = 200
+  force = true
