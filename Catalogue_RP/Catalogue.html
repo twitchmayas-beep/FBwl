@@ -1519,7 +1519,15 @@
       applyFilters();
     }
 
-    function applyFilters() { renderGrid(); }
+    function applyFilters() {
+      const search = document.getElementById('searchInput').value.trim();
+      if (search && (activeFilter.type === 'general' || activeFilter.type === 'wiki')) {
+        const allBtn = document.querySelector('[data-filter="all:all"]');
+        setFilter('all', 'all', allBtn);
+        return;
+      }
+      renderGrid();
+    }
 
     function getFiltered() {
       const search = document.getElementById('searchInput').value.toLowerCase().trim();
