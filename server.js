@@ -44,8 +44,8 @@ app.use(session({
 app.use(passport.initialize());
 app.use(passport.session());
 
-app.use(express.static(path.join(__dirname, 'Catalogue RP')));
-app.use('/assets', express.static(path.join(__dirname, 'Catalogue RP', 'assets')));
+app.use(express.static(path.join(__dirname, 'Catalogue_RP')));
+app.use('/assets', express.static(path.join(__dirname, 'Catalogue_RP', 'assets')));
 
 // 3. Configuration Passport
 passport.serializeUser((user, done) => done(null, user));
@@ -130,7 +130,7 @@ const isAuthenticated = (req, res, next) => {
 };
 
 app.get('/streams', isAuthenticated, (req, res) => {
-    res.sendFile(path.join(__dirname, 'Catalogue RP', 'Catalogue.html'));
+    res.sendFile(path.join(__dirname, 'Catalogue_RP', 'Catalogue.html'));
 });
 
 app.listen(port, () => {
