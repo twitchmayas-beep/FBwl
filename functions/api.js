@@ -9,11 +9,14 @@ const serverless = require('serverless-http');
 
 const app = express();
 
-// Configuration des sessions via Cookies
+// Configuration des sessions via Cookies (Adapté pour Netlify/HTTPS)
 app.use(cookieSession({
     name: 'session_fbwl',
     keys: ['secret_cookie_anti_streamhack'],
-    maxAge: 24 * 60 * 60 * 1000
+    maxAge: 24 * 60 * 60 * 1000,
+    secure: true, // Indispensable sur Netlify (HTTPS)
+    sameSite: 'lax',
+    httpOnly: true
 }));
 
 // Patch pour compatibilité cookie-session et Passport (évite l'erreur regenerate)
