@@ -4,8 +4,6 @@ const cookieSession = require('cookie-session');
 const passport = require('passport');
 const DiscordStrategy = require('passport-discord').Strategy;
 const axios = require('axios');
-const path = require('path');
-const fs = require('fs');
 const serverless = require('serverless-http');
 
 const app = express();
@@ -125,95 +123,22 @@ app.get('/auth/discord/callback', (req, res, next) => {
 
         if (shouldBlock) {
             console.log("🚫 Refusé : Redirection vers /blocked");
-            return res.redirect('/blocked');
+            return res.redirect('/blocked.html');
         }
 
         // --- SI AUTORISÉ : ON ENVOIE DIRECTEMENT LE CATALOGUE ---
         console.log("🏁 Autorisé : Envoi direct du catalogue !");
-        
-        // Essayer plusieurs chemins possibles
-        const possiblePaths = [
-            path.join(process.cwd(), 'Catalogue_RP', 'Catalogue.html'),
-            path.join(__dirname, '..', 'Catalogue_RP', 'Catalogue.html'),
-            '/var/task/Catalogue_RP/Catalogue.html'
-        ];
-        
-        let fileContent = null;
-        for (const filePath of possiblePaths) {
-            try {
-                fileContent = fs.readFileSync(filePath, 'utf-8');
-                console.log(`✅ Fichier trouvé: ${filePath}`);
-                break;
-            } catch (e) {
-                console.log(`❌ Chemin non trouvé: ${filePath}`);
-            }
-        }
-        
-        if (fileContent) {
-            res.setHeader('Content-Type', 'text/html; charset=utf-8');
-            res.send(fileContent);
-        } else {
-            console.error("❌ Impossible de charger le catalogue");
-            res.status(500).send("Erreur de chargement du catalogue");
-        }
+        return res.redirect('/Catalogue_RP/Catalogue.html');
 
     } catch (error) {
         console.error("❌ Erreur check Discord:", error.response?.data || error.message);
         // En cas d'erreur de check, par sécurité on envoie quand même sur le catalogue
-        if (!res.headersSent) {
-            const possiblePaths = [
-                path.join(process.cwd(), 'Catalogue_RP', 'Catalogue.html'),
-                path.join(__dirname, '..', 'Catalogue_RP', 'Catalogue.html'),
-                '/var/task/Catalogue_RP/Catalogue.html'
-            ];
-            
-            let fileContent = null;
-            for (const filePath of possiblePaths) {
-                try {
-                    fileContent = fs.readFileSync(filePath, 'utf-8');
-                    console.log(`✅ Fichier trouvé (catch): ${filePath}`);
-                    break;
-                } catch (e) {
-                    console.log(`❌ Chemin non trouvé (catch): ${filePath}`);
-                }
-            }
-            
-            if (fileContent) {
-                res.setHeader('Content-Type', 'text/html; charset=utf-8');
-                res.send(fileContent);
-            } else {
-                console.error("❌ Impossible de charger le catalogue (catch)");
-                res.status(500).send("Erreur de chargement du catalogue");
-            }
-        }
+        return res.redirect('/Catalogue_RP/Catalogue.html');
     }
 });
 
 app.get('/blocked', (req, res) => {
-    const possiblePaths = [
-        path.join(process.cwd(), 'blocked.html'),
-        path.join(__dirname, '..', 'blocked.html'),
-        '/var/task/blocked.html'
-    ];
-    
-    let fileContent = null;
-    for (const filePath of possiblePaths) {
-        try {
-            fileContent = fs.readFileSync(filePath, 'utf-8');
-            console.log(`✅ blocked.html trouvé: ${filePath}`);
-            break;
-        } catch (e) {
-            console.log(`❌ Chemin non trouvé: ${filePath}`);
-        }
-    }
-    
-    if (fileContent) {
-        res.setHeader('Content-Type', 'text/html; charset=utf-8');
-        res.send(fileContent);
-    } else {
-        console.error("❌ Impossible de charger blocked.html");
-        res.status(500).send("Page non disponible");
-    }
+    res.redirect('/blocked.html');
 });
 
 const isAuthenticated = (req, res, next) => {
@@ -222,30 +147,7 @@ const isAuthenticated = (req, res, next) => {
 };
 
 app.get('/streams', isAuthenticated, (req, res) => {
-    const possiblePaths = [
-        path.join(process.cwd(), 'Catalogue_RP', 'Catalogue.html'),
-        path.join(__dirname, '..', 'Catalogue_RP', 'Catalogue.html'),
-        '/var/task/Catalogue_RP/Catalogue.html'
-    ];
-    
-    let fileContent = null;
-    for (const filePath of possiblePaths) {
-        try {
-            fileContent = fs.readFileSync(filePath, 'utf-8');
-            console.log(`✅ Catalogue trouvé: ${filePath}`);
-            break;
-        } catch (e) {
-            console.log(`❌ Chemin non trouvé: ${filePath}`);
-        }
-    }
-    
-    if (fileContent) {
-        res.setHeader('Content-Type', 'text/html; charset=utf-8');
-        res.send(fileContent);
-    } else {
-        console.error("❌ Impossible de charger le catalogue");
-        res.status(500).send("Erreur de chargement du catalogue");
-    }
+    res.redirect('/Catalogue_RP/Catalogue.html');
 });
 
 // Export pour Netlify
