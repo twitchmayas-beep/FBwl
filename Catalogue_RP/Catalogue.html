@@ -114,15 +114,9 @@
     <!-- MAIN -->
     <main class="main">
 
-      <!-- Petit rappel pour la config Twitch, ça évite de se demander pourquoi rien ne s'affiche -->
-      <div class="alert-banner" id="configAlert">
-        <span style="font-size:18px;flex-shrink:0">💡</span>
-        <div>
-          <strong style="color:var(--text-bright)">Oh, une petite seconde !</strong><br>
-          Il semblerait qu'on n'ait pas encore ton <code>client_id</code> et ton <code>access_token</code> dans le
-          <code>config.json</code>.
-          C'est nécessaire si tu veux que la détection automatique des lives Twitch fonctionne.
-        </div>
+      <!-- Le rappel pour la config Twitch n'est plus nécessaire dans le config.json -->
+      <div class="alert-banner hidden" id="configAlert">
+        <!-- Banner masqué par défaut car géré par le .env serveur -->
       </div>
 
       <div class="view-header">
@@ -1312,11 +1306,9 @@
       buildSidebar();
       updateCounts();
 
-      if (CONFIG.twitch?.client_id && CONFIG.twitch?.access_token) {
-        document.getElementById('configAlert').classList.add('hidden');
-        refreshLive();
-        setInterval(refreshLive, (CONFIG.twitch.refresh_interval_minutes || 2) * 60 * 1000);
-      }
+      // On lance le rafraîchissement des lives (géré par le backend proxy)
+      refreshLive();
+      setInterval(refreshLive, 120000); // 2 minutes
 
       // Initialisation du statut vocal
       refreshVoiceStatus();
@@ -1347,37 +1339,32 @@
     }
 
     async function refreshLive() {
-      const { client_id, access_token } = CONFIG.twitch || {};
-      if (!client_id || !access_token) return;
-
+      const logins = characterList.filter(c => c.twitch).map(c => c.twitch.toLowerCase());
       const btn = document.getElementById('twitchBtn');
+      
+      if (!logins.length) { 
+        btn.textContent = '✓ Aucun stream'; 
+        btn.className = 'ok'; 
+        return; 
+      }
+
       btn.textContent = '⟳ Vérification…';
       btn.className = '';
-
-      const logins = characterList.filter(c => c.twitch).map(c => c.twitch.toLowerCase());
-      if (!logins.length) { btn.textContent = '✓ Aucun stream'; btn.className = 'ok'; return; }
-
       liveSet = new Set();
+
       try {
-        // Batches de 100 (limite Twitch API)
-        for (let i = 0; i < logins.length; i += 100) {
-          const batch = logins.slice(i, i + 100);
-          const params = batch.map(l => `user_login=${encodeURIComponent(l)}`).join('&');
-          const res = await fetch(`https://api.twitch.tv/helix/streams?${params}`, {
-            headers: {
-              'Client-Id': client_id,
-              'Authorization': `Bearer ${access_token}`
-            }
-          });
-          if (!res.ok) throw new Error(`Twitch API ${res.status}`);
-          const data = await res.json();
-          (data.data || []).forEach(s => liveSet.add(s.user_login.toLowerCase()));
-        }
+        // Appelle notre Proxy server.js au lieu de l'API Twitch en direct
+        const res = await fetch(`/api/twitch/live?logins=${logins.join(',')}`);
+        if (!res.ok) throw new Error(`API Error ${res.status}`);
+        
+        const result = await (res.json());
+        (result.data || []).forEach(s => liveSet.add(s.user_login.toLowerCase()));
+        
         const ts = new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
         btn.textContent = `✓ Live vérifié ${ts}`;
         btn.className = 'ok';
       } catch (e) {
-        console.error('Twitch API error:', e);
+        console.error('Twitch refresh error:', e);
         btn.textContent = '✗ Erreur Twitch';
         btn.className = 'err';
       }
@@ -1388,10 +1375,8 @@
 
     function isLive(char) {
       if (!char.twitch) return false;
-      // Si l'API Twitch est configurée, utiliser liveSet
-      if (CONFIG.twitch?.client_id) return liveSet.has(char.twitch.toLowerCase());
-      // Sinon, utiliser le champ JSON (mis à jour manuellement)
-      return !!char.live;
+      // On utilise toujours liveSet qui est rempli via le proxy backend
+      return liveSet.has(char.twitch.toLowerCase());
     }
 
     /* ─────────────────────────────────────────────────────────
@@ -2135,22 +2120,30 @@
       document.getElementById('adminLoginError').classList.add('hidden');
     }
 
-    /* On vérifie si c'est bien un admin. On est pas trop méchants sur les messages. */
-    function checkAdminLogin() {
+    /* On vérifie si c'est bien un admin via l'API backend */
+    async function checkAdminLogin() {
       const u = document.getElementById('adminLoginUser').value;
       const p = document.getElementById('adminLoginPass').value;
       const err = document.getElementById('adminLoginError');
 
-      const cfgU = (CONFIG.admin && CONFIG.admin.pwd) ? CONFIG.admin.pwd : 'admin';
-      const cfgP = (CONFIG.admin && CONFIG.admin.pin) ? CONFIG.admin.pin : '1234';
+      try {
+        const res = await fetch('/api/admin/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ user: u, pin: p })
+        });
 
-      if (u === cfgU && p === cfgP) {
-        sessionStorage.setItem('adminAuth', 'true');
-        err.classList.add('hidden');
-        closeAdminLogin();
-        toggleAdmin();
-      } else {
-        err.textContent = "Aïe, ce n'est pas le bon code... Réessaie encore ?";
+        if (res.ok) {
+          sessionStorage.setItem('adminAuth', 'true');
+          err.classList.add('hidden');
+          closeAdminLogin();
+          toggleAdmin();
+        } else {
+          err.textContent = "Aïe, ce n'est pas le bon code... Réessaie encore ?";
+          err.classList.remove('hidden');
+        }
+      } catch (e) {
+        err.textContent = "Erreur de connexion au serveur.";
         err.classList.remove('hidden');
       }
     }

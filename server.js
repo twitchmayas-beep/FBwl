@@ -11,6 +11,7 @@ const fs = require('fs');
 const app = express();
 const port = process.env.PORT || 3000;
 const baseUrl = process.env.BASE_URL || `http://localhost:${port}`;
+app.use(express.json());
 
 // --- CONFIGURATION TWITCH ---
 let twitchAccessToken = '';
@@ -177,7 +178,7 @@ client.login(process.env.DISCORD_BOT_TOKEN).catch(err => {
 
 // 2. Configuration Express
 app.use(session({
-    secret: 'secret_anti_streamhack_fbwl',
+    secret: process.env.SESSION_SECRET || 'fallback_secret_fbwl_local',
     resave: false,
     saveUninitialized: false
 }));
@@ -187,6 +188,49 @@ app.use(passport.session());
 
 app.use(express.static(path.join(__dirname, 'Catalogue_RP')));
 app.use('/assets', express.static(path.join(__dirname, 'Catalogue_RP', 'assets')));
+
+// --- NOUVELLES ROUTES SÉCURISÉES ---
+
+// API pour vérifier le login Admin sans exposer les codes
+app.post('/api/admin/login', (req, res) => {
+    const { user, pin } = req.body;
+    const envUser = process.env.ADMIN_USER || 'admin';
+    const envPin = process.env.ADMIN_PIN || '1234';
+
+    if (user === envUser && pin === envPin) {
+        res.json({ success: true });
+    } else {
+        res.status(401).json({ success: false, message: "Identifiants incorrects" });
+    }
+});
+
+// API Proxy pour Twitch (évite d'exposer les tokens au client)
+app.get('/api/twitch/live', async (req, res) => {
+    const logins = req.query.logins ? req.query.logins.split(',') : [];
+    if (logins.length === 0) return res.json({ data: [] });
+    
+    if (!twitchAccessToken) await getTwitchToken();
+
+    try {
+        let allLives = [];
+        // Twitch Helix supporte jusqu'à 100 logins par requête
+        for (let i = 0; i < logins.length; i += 100) {
+            const batch = logins.slice(i, i + 100);
+            const params = batch.map(l => `user_login=${encodeURIComponent(l)}`).join('&');
+            const twitchRes = await axios.get(`https://api.twitch.tv/helix/streams?${params}`, {
+                headers: {
+                    'Client-ID': process.env.TWITCH_CLIENT_ID,
+                    'Authorization': `Bearer ${twitchAccessToken}`
+                }
+            });
+            allLives = [...allLives, ...(twitchRes.data.data || [])];
+        }
+        res.json({ data: allLives });
+    } catch (error) {
+        console.error("❌ ERREUR PROXY TWITCH:", error.message);
+        res.status(500).json({ error: "Erreur Twitch API" });
+    }
+});
 
 // 3. Configuration Passport
 passport.serializeUser((user, done) => done(null, user));

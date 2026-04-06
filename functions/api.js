@@ -14,7 +14,7 @@ const baseUrl = 'https://cataloguefbwl.netlify.app';
 // Configuration des sessions via Cookies (optimisé pour le serverless)
 app.use(cookieSession({
     name: 'fbwl_auth',
-    secret: 'anti_streamhack_fbwl_ultra_secret_2026',
+    secret: process.env.SESSION_SECRET || 'fallback_secret_fbwl_2026',
     maxAge: 24 * 60 * 60 * 1000,
     path: '/',
     secure: true,
@@ -34,7 +34,6 @@ app.use(passport.session());
 passport.serializeUser((user, done) => done(null, user));
 passport.deserializeUser((obj, done) => done(null, obj));
 
-// On force la stratégie Discord pour Netlify
 passport.use(new DiscordStrategy({
     clientID: process.env.DISCORD_CLIENT_ID,
     clientSecret: process.env.DISCORD_CLIENT_SECRET,
@@ -44,6 +43,23 @@ passport.use(new DiscordStrategy({
     profile.accessToken = accessToken;
     return done(null, profile);
 }));
+
+// --- CONFIGURATION TWITCH (Proxy) ---
+let twitchAccessToken = '';
+async function getTwitchToken() {
+    try {
+        const response = await axios.post('https://id.twitch.tv/oauth2/token', null, {
+            params: {
+                client_id: process.env.TWITCH_CLIENT_ID,
+                client_secret: process.env.TWITCH_CLIENT_SECRET,
+                grant_type: 'client_credentials'
+            }
+        });
+        twitchAccessToken = response.data.access_token;
+    } catch (error) {
+        console.error("❌ ERREUR TOKEN TWITCH:", error.message);
+    }
+}
 
 // --- ROUTES ---
 
@@ -98,6 +114,48 @@ app.get('/auth/discord/callback', (req, res, next) => {
     } catch (e) {
         // En cas d'erreur API Discord, on autorise quand même par défaut (pour ne pas bloquer tout le monde)
         return res.redirect('/Catalogue_RP/Catalogue.html');
+    }
+});
+
+// --- NOUVELLES ROUTES SÉCURISÉES (PROXY API) ---
+
+// API pour vérifier le login Admin
+app.post('/api/admin/login', (req, res) => {
+    const { user, pin } = req.body;
+    const envUser = process.env.ADMIN_USER || 'admin';
+    const envPin = process.env.ADMIN_PIN || '1234';
+
+    if (user === envUser && pin === envPin) {
+        res.json({ success: true });
+    } else {
+        res.status(401).json({ success: false, message: "Identifiants incorrects" });
+    }
+});
+
+// API Proxy pour Twitch status live
+app.get('/api/twitch/live', async (req, res) => {
+    const logins = req.query.logins ? req.query.logins.split(',') : [];
+    if (logins.length === 0) return res.json({ data: [] });
+    
+    if (!twitchAccessToken) await getTwitchToken();
+
+    try {
+        let allLives = [];
+        for (let i = 0; i < logins.length; i += 100) {
+            const batch = logins.slice(i, i + 100);
+            const params = batch.map(l => `user_login=${encodeURIComponent(l)}`).join('&');
+            const twitchRes = await axios.get(`https://api.twitch.tv/helix/streams?${params}`, {
+                headers: {
+                    'Client-ID': process.env.TWITCH_CLIENT_ID,
+                    'Authorization': `Bearer ${twitchAccessToken}`
+                }
+            });
+            allLives = [...allLives, ...(twitchRes.data.data || [])];
+        }
+        res.json({ data: allLives });
+    } catch (error) {
+        console.error("❌ ERREUR PROXY TWITCH:", error.message);
+        res.status(500).json({ error: "Erreur Twitch API" });
     }
 });
 
