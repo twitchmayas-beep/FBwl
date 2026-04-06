@@ -197,9 +197,12 @@ app.post('/api/admin/login', (req, res) => {
     const envUser = process.env.ADMIN_USER || 'admin';
     const envPin = process.env.ADMIN_PIN || '1234';
 
+    console.log(`🔐 Tentative de login : User=${user}, Pin=${pin}`);
     if (user === envUser && pin === envPin) {
+        console.log("✅ Login Admin réussi !");
         res.json({ success: true });
     } else {
+        console.warn(`❌ Login Admin échoué : Attendu ${envUser}/${envPin} mais reçu ${user}/${pin}`);
         res.status(401).json({ success: false, message: "Identifiants incorrects" });
     }
 });
