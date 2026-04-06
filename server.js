@@ -191,18 +191,15 @@ app.use('/assets', express.static(path.join(__dirname, 'Catalogue_RP', 'assets')
 
 // --- NOUVELLES ROUTES SÉCURISÉES ---
 
-// API pour vérifier le login Admin sans exposer les codes
+// API pour vérifier le login Admin
 app.post('/api/admin/login', (req, res) => {
     const { user, pin } = req.body;
     const envUser = process.env.ADMIN_USER || 'admin';
     const envPin = process.env.ADMIN_PIN || '1234';
 
-    console.log(`🔐 Tentative de login : User=${user}, Pin=${pin}`);
     if (user === envUser && pin === envPin) {
-        console.log("✅ Login Admin réussi !");
         res.json({ success: true });
     } else {
-        console.warn(`❌ Login Admin échoué : Attendu ${envUser}/${envPin} mais reçu ${user}/${pin}`);
         res.status(401).json({ success: false, message: "Identifiants incorrects" });
     }
 });
