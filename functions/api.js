@@ -7,6 +7,7 @@ const axios = require('axios');
 const serverless = require('serverless-http');
 
 const app = express();
+app.use(express.json());
 
 // --- CONFIGURATION LIGNE --- (C'est elle l'adresse officielle)
 const baseUrl = 'https://cataloguefbwl.netlify.app';
