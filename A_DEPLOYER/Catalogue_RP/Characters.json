@@ -1,0 +1,119 @@
+[
+  {
+    "nom": "Béni romero",
+    "faction": "legal",
+    "groupe": "police_n",
+    "equipe": "",
+    "role": "Rookie",
+    "twitch": "TwincyTV",
+    "photo": "assets/Flashback WL logo officiel.jpg"
+  },
+  {
+    "nom": "Santito",
+    "faction": "illegal",
+    "groupe": "cartel",
+    "equipe": "777",
+    "role": "Lead",
+    "twitch": "TwincyTV",
+    "photo": "assets/Flashback WL logo officiel.jpg"
+  },
+  {
+    "nom": "Chebkumaa",
+    "faction": "illegal",
+    "groupe": "civil_illegal",
+    "equipe": "foyer",
+    "role": "Co-lead",
+    "twitch": "TwincyTV",
+    "photo": "assets/Flashback WL logo officiel.jpg"
+  },
+  {
+    "nom": "Winnie",
+    "faction": "illegal",
+    "groupe": "gang",
+    "equipe": "requiem",
+    "role": "Co-lead",
+    "twitch": "TwincyTV",
+    "photo": "assets/Flashback WL logo officiel.jpg"
+  },
+  {
+    "nom": "JLtoot",
+    "faction": "legal",
+    "groupe": "police_s",
+    "equipe": "",
+    "role": "Lieutenant",
+    "twitch": "TwincyTV",
+    "photo": "assets/Flashback WL logo officiel.jpg"
+  },
+  {
+    "nom": "Aenot",
+    "faction": "legal",
+    "groupe": "org_legal",
+    "equipe": "",
+    "role": "Maire",
+    "twitch": "Aenot",
+    "photo": "assets/Flashback WL logo officiel.jpg"
+  },
+  {
+    "nom": "Viggy",
+    "faction": "legal",
+    "groupe": "medical",
+    "equipe": "",
+    "role": "Directeur",
+    "twitch": "Viggy_Night",
+    "photo": "assets/Flashback WL logo officiel.jpg"
+  },
+  {
+    "nom": "Ella Jane",
+    "faction": "legal",
+    "groupe": "gm",
+    "equipe": "",
+    "role": "Juge",
+    "twitch": "Sludeina",
+    "photo": "assets/Flashback WL logo officiel.jpg"
+  },
+  {
+    "nom": "Justine Bizot",
+    "faction": "legal",
+    "groupe": "civil_legal",
+    "equipe": "",
+    "role": "Aucun Métiers",
+    "twitch": "Domingo",
+    "photo": "assets/Flashback WL logo officiel.jpg"
+  },
+  {
+    "nom": "Horn",
+    "faction": "legal",
+    "groupe": "ent_beekers",
+    "equipe": "",
+    "role": "Directeur ",
+    "twitch": "horn",
+    "photo": "assets/Flashback WL logo officiel.jpg"
+  },
+  {
+    "nom": "TwincyTV",
+    "faction": "illegal",
+    "groupe": "org_illegal",
+    "equipe": "shady",
+    "role": "Lead",
+    "twitch": "TwincyTV",
+    "photo": "assets/Flashback WL logo officiel.jpg"
+  },
+  {
+    "nom": "Santi De Navaro | TwincyTV",
+    "faction": "illegal",
+    "groupe": "org_illegal",
+    "equipe": "shady",
+    "role": "Lead",
+    "twitch": "TwincyTV",
+    "photo": "assets/Flashback WL logo officiel.jpg"
+  },
+  {
+    "nom": "[04] Azumi Ishida | Kayli",
+    "faction": "legal",
+    "groupe": "police_s",
+    "equipe": "",
+    "role": "Officier",
+    "twitch": "Kayli_TV",
+    "photo": "assets/Flashback WL logo officiel.jpg"
+  }
+]
