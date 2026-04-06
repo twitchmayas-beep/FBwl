@@ -7,157 +7,98 @@ const axios = require('axios');
 const serverless = require('serverless-http');
 
 const app = express();
-const baseUrl = process.env.BASE_URL || 'https://cataloguefbwl.netlify.app';
 
-// 🔍 LOG DE DIAGNOSTIC (Visible dans Netlify Functions Logs)
-console.log("🛠️ --- DIAGNOSTIC CONFIGURATION ---");
-console.log("BASE_URL:", baseUrl);
-console.log("CLIENT_ID PRESENT:", !!process.env.DISCORD_CLIENT_ID);
-console.log("CLIENT_SECRET PRESENT:", !!process.env.DISCORD_CLIENT_SECRET);
-console.log("BOT_TOKEN PRESENT:", !!process.env.DISCORD_BOT_TOKEN);
-console.log("GUILD_ID PRESENT:", !!process.env.DISCORD_GUILD_ID);
-console.log("------------------------------------");
+// --- CONFIGURATION LIGNE --- (C'est elle l'adresse officielle)
+const baseUrl = 'https://cataloguefbwl.netlify.app';
 
-// Configuration des sessions via Cookies
+// Configuration des sessions via Cookies (optimisé pour le serverless)
 app.use(cookieSession({
     name: 'fbwl_auth',
-    secret: 'anti_streamhack_flashback_tv_ultra_secret_key_2024', // Un secret long et stable
+    secret: 'anti_streamhack_fbwl_ultra_secret_2026',
     maxAge: 24 * 60 * 60 * 1000,
     path: '/',
     secure: true,
     sameSite: 'lax'
 }));
 
-// Patch pour compatibilité cookie-session et Passport (évite l'erreur regenerate)
+// Petit hack pour que Passport soit content sur Netlify
 app.use((req, res, next) => {
-    if (req.session && !req.session.regenerate) {
-        req.session.regenerate = (cb) => cb();
-    }
-    if (req.session && !req.session.save) {
-        req.session.save = (cb) => cb();
-    }
+    if (req.session && !req.session.regenerate) req.session.regenerate = (cb) => cb();
+    if (req.session && !req.session.save) req.session.save = (cb) => cb();
     next();
 });
 
 app.use(passport.initialize());
 app.use(passport.session());
 
-// Passport setup
 passport.serializeUser((user, done) => done(null, user));
 passport.deserializeUser((obj, done) => done(null, obj));
 
-const clientID = process.env.DISCORD_CLIENT_ID;
-const clientSecret = process.env.DISCORD_CLIENT_SECRET;
-
-if (clientID && clientSecret) {
-    passport.use(new DiscordStrategy({
-        clientID: clientID,
-        clientSecret: clientSecret,
-        callbackURL: `${baseUrl}/auth/discord/callback`,
-        scope: ['identify', 'guilds']
-    }, (accessToken, refreshToken, profile, done) => {
-        profile.accessToken = accessToken;
-        return done(null, profile);
-    }));
-} else {
-    console.error("❌ ERREUR CRITIQUE : DISCORD_CLIENT_ID ou DISCORD_CLIENT_SECRET manquant !");
-}
+// On force la stratégie Discord pour Netlify
+passport.use(new DiscordStrategy({
+    clientID: process.env.DISCORD_CLIENT_ID,
+    clientSecret: process.env.DISCORD_CLIENT_SECRET,
+    callbackURL: `${baseUrl}/auth/discord/callback`,
+    scope: ['identify', 'guilds']
+}, (accessToken, refreshToken, profile, done) => {
+    profile.accessToken = accessToken;
+    return done(null, profile);
+}));
 
 // --- ROUTES ---
 
-// Route d'entrée pour la connexion Discord
 app.get('/auth/discord', (req, res, next) => {
-    console.log("🚀 Lancement de la connexion Discord...");
-    passport.authenticate('discord', {
-        callbackURL: `${baseUrl}/auth/discord/callback`
+    console.log("🚀 Départ vers Discord...");
+    passport.authenticate('discord', { 
+        callbackURL: `${baseUrl}/auth/discord/callback` 
     })(req, res, next);
 });
 
-// Route Callback (Retour de Discord)
 app.get('/auth/discord/callback', (req, res, next) => {
-    console.log("📩 Retour de Discord reçu ! Vérification des infos...");
+    console.log("📩 Retour de Discord...");
     passport.authenticate('discord', {
         callbackURL: `${baseUrl}/auth/discord/callback`,
         failureRedirect: '/'
     }, (err, user, info) => {
-        if (err) {
-            console.error("❌ ERREUR PASSPORT (Retour Discord) :", err);
-            return res.redirect('/');
-        }
-        if (!user) {
-            console.error("❌ ÉCHEC AUTHENTIFICATION (Utilisateur non trouvé) :", info);
-            return res.redirect('/');
-        }
-        req.login(user, (loginErr) => {
-            if (loginErr) {
-                console.error("❌ ERREUR LOGIN (Session) :", loginErr);
-                return res.redirect('/');
-            }
-            console.log("✅ Connexion Passport réussie !");
-            next(); // On passe au check des rôles
-        });
+        if (err || !user) return res.redirect('/');
+        req.login(user, () => next());
     })(req, res, next);
 }, async (req, res) => {
     try {
-        console.log(`🔍 Analyse pour : ${req.user.username}`);
-
-        // ... variables ... (guildId, botToken, etc.)
         const guildId = process.env.DISCORD_GUILD_ID;
         const botToken = process.env.DISCORD_BOT_TOKEN;
         const userId = req.user.id;
 
+        // On vérifie les rôles sur Discord
         const response = await axios.get(`https://discord.com/api/v10/guilds/${guildId}/members/${userId}`, {
             headers: { Authorization: `Bot ${botToken}` }
         });
 
-        const member = response.data;
-        const roles = member.roles || [];
+        const roles = response.data.roles || [];
         const isCitoyen = roles.includes(process.env.DISCORD_ROLE_ID_CITOYEN);
         const isStaff = roles.includes(process.env.DISCORD_ROLE_ID_STAFF);
         const targetVoiceId = process.env.DISCORD_VOICE_CHANNEL_ID;
 
+        // On vérifie le salon vocal (Anti-Streamhack)
         let isInTargetVoice = false;
         try {
-            const voiceResponse = await axios.get(`https://discord.com/api/v10/guilds/${guildId}/voice-states/${userId}`, {
+            const voiceRes = await axios.get(`https://discord.com/api/v10/guilds/${guildId}/voice-states/${userId}`, {
                 headers: { Authorization: `Bot ${botToken}` }
             }).catch(() => null);
-
-            if (voiceResponse && voiceResponse.data) {
-                isInTargetVoice = voiceResponse.data.channel_id === targetVoiceId;
-            }
+            if (voiceRes && voiceRes.data) isInTargetVoice = voiceRes.data.channel_id === targetVoiceId;
         } catch (e) { }
 
-        const shouldBlock = isCitoyen && isInTargetVoice && !isStaff;
-
-        console.log(`📊 VERDICT : isCitoyen=${isCitoyen}, isInTargetVoice=${isInTargetVoice}, isStaff=${isStaff}`);
-
-        if (shouldBlock) {
-            console.log("🚫 Refusé : Redirection vers /blocked");
+        // Blocage si citoyen en vocal et pas staff
+        if (isCitoyen && isInTargetVoice && !isStaff) {
             return res.redirect('/blocked.html');
         }
 
-        // --- SI AUTORISÉ : ON ENVOIE DIRECTEMENT LE CATALOGUE ---
-        console.log("🏁 Autorisé : Envoi direct du catalogue !");
+        // Si OK -> On envoie sur le catalogue
         return res.redirect('/Catalogue_RP/Catalogue.html');
-
-    } catch (error) {
-        console.error("❌ Erreur check Discord:", error.response?.data || error.message);
-        // En cas d'erreur de check, par sécurité on envoie quand même sur le catalogue
+    } catch (e) {
+        // En cas d'erreur API Discord, on autorise quand même par défaut (pour ne pas bloquer tout le monde)
         return res.redirect('/Catalogue_RP/Catalogue.html');
     }
-});
-
-app.get('/blocked', (req, res) => {
-    res.redirect('/blocked.html');
-});
-
-const isAuthenticated = (req, res, next) => {
-    if (req.isAuthenticated()) return next();
-    res.redirect('/');
-};
-
-app.get('/streams', isAuthenticated, (req, res) => {
-    res.redirect('/Catalogue_RP/Catalogue.html');
 });
 
 // Export pour Netlify
